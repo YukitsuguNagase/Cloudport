@@ -1,0 +1,355 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: CloudPort - AWS技術者マッチングプラットフォーム
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs20.x
+    MemorySize: 256
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        USERS_TABLE: !Ref UsersTable
+        JOBS_TABLE: !Ref JobsTable
+        APPLICATIONS_TABLE: !Ref ApplicationsTable
+        CONVERSATIONS_TABLE: !Ref ConversationsTable
+        MESSAGES_TABLE: !Ref MessagesTable
+        CONTRACTS_TABLE: !Ref ContractsTable
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+    Description: Environment name
+
+Resources:
+  # API Gateway
+  CloudPortApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+
+  # Cognito User Pool
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub cloudport-users-${Environment}
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: false
+        - Name: userType
+          AttributeDataType: String
+          Mutable: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub cloudport-client-${Environment}
+      UserPoolId: !Ref UserPool
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      GenerateSecret: false
+
+  # DynamoDB Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-users-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+
+  JobsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-jobs-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: jobId
+          AttributeType: S
+        - AttributeName: companyId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: jobId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: CompanyIdIndex
+          KeySchema:
+            - AttributeName: companyId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  ApplicationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-applications-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: applicationId
+          AttributeType: S
+        - AttributeName: jobId
+          AttributeType: S
+        - AttributeName: engineerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: applicationId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: JobIdIndex
+          KeySchema:
+            - AttributeName: jobId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: EngineerIdIndex
+          KeySchema:
+            - AttributeName: engineerId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  ConversationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-conversations-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: conversationId
+          AttributeType: S
+        - AttributeName: engineerId
+          AttributeType: S
+        - AttributeName: companyId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: conversationId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EngineerIdIndex
+          KeySchema:
+            - AttributeName: engineerId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: CompanyIdIndex
+          KeySchema:
+            - AttributeName: companyId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  MessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-messages-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: messageId
+          AttributeType: S
+        - AttributeName: conversationId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: messageId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ConversationIdIndex
+          KeySchema:
+            - AttributeName: conversationId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  ContractsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-contracts-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: contractId
+          AttributeType: S
+        - AttributeName: engineerId
+          AttributeType: S
+        - AttributeName: companyId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: contractId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EngineerIdIndex
+          KeySchema:
+            - AttributeName: engineerId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: CompanyIdIndex
+          KeySchema:
+            - AttributeName: companyId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Lambda Functions - Jobs
+  GetJobsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/jobs/getJobs.handler
+      Events:
+        GetJobs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /jobs
+            Method: get
+            Auth:
+              Authorizer: NONE
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+
+  GetJobDetailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/jobs/getJobDetail.handler
+      Events:
+        GetJobDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /jobs/{jobId}
+            Method: get
+            Auth:
+              Authorizer: NONE
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+
+  CreateJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/jobs/createJob.handler
+      Events:
+        CreateJob:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /jobs
+            Method: post
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+
+  UpdateJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/jobs/updateJob.handler
+      Events:
+        UpdateJob:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /jobs/{jobId}
+            Method: put
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+
+  DeleteJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/jobs/deleteJob.handler
+      Events:
+        DeleteJob:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /jobs/{jobId}
+            Method: delete
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+
+  # Lambda Functions - Users
+  GetProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/users/getProfile.handler
+      Events:
+        GetProfile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /users/me
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  UpdateProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/users/updateProfile.handler
+      Events:
+        UpdateProfile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /users/me
+            Method: put
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${CloudPortApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
