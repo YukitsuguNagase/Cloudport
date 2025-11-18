@@ -22,5 +22,5 @@ export interface Contract {
 export interface CreateContractInput {
   applicationId: string
   contractAmount: number
-  feePercentage: number
+  couponCode?: string // 将来のクーポン対応用（オプショナル）
 }

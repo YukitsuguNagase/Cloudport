@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 
 function Landing() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white flex flex-col">
       {/* Header */}
       <header className="container mx-auto px-4 py-6">
         <nav className="flex justify-between items-center">
@@ -76,9 +76,9 @@ function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-8 mt-20">
+      <footer className="bg-gray-900 text-white py-8 mt-auto">
         <div className="container mx-auto px-4 text-center">
-          <p>&copy; 2024 CloudPort. All rights reserved.</p>
+          <p>&copy; 2025 CloudPort. All rights reserved.</p>
         </div>
       </footer>
     </div>

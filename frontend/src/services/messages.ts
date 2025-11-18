@@ -1,6 +1,16 @@
 import apiClient from './api'
 import { Conversation, Message, SendMessageInput } from '../types/message'
 
+export const createConversation = async (applicationId: string): Promise<Conversation> => {
+  const response = await apiClient.post(`/applications/${applicationId}/conversation`)
+  return response.data
+}
+
+export const getConversation = async (conversationId: string): Promise<Conversation> => {
+  const response = await apiClient.get(`/conversations/${conversationId}`)
+  return response.data
+}
+
 export const getConversations = async (): Promise<Conversation[]> => {
   const response = await apiClient.get('/conversations')
   return response.data

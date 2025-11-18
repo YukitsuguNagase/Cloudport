@@ -37,7 +37,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const contract = contractResult.Item
 
-    // Get user to determine user type
+    // Get user to verify they are the company
     const userResult = await docClient.send(
       new GetCommand({
         TableName: USERS_TABLE,
@@ -51,74 +51,62 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const userType = userResult.Item.userType
 
-    // Verify user is the one who needs to approve
-    if (userType === 'engineer' && userId !== contract.engineerId) {
-      return errorResponse('You are not authorized to approve this contract', 403)
+    // Only companies can process payment
+    if (userType !== 'company') {
+      return errorResponse('Only companies can process payment', 403)
     }
 
-    if (userType === 'company' && userId !== contract.companyId) {
-      return errorResponse('You are not authorized to approve this contract', 403)
+    // Verify user is the company from this contract
+    if (userId !== contract.companyId) {
+      return errorResponse('You are not authorized to process payment for this contract', 403)
     }
 
-    // Check if contract is in pending status for this user
-    if (userType === 'engineer' && contract.status !== 'pending_engineer') {
-      return errorResponse('This contract is not pending your approval', 400)
+    // Check if contract is approved
+    if (contract.status !== 'approved') {
+      return errorResponse('Contract must be approved by both parties before payment', 400)
     }
 
-    if (userType === 'company' && contract.status !== 'pending_company') {
-      return errorResponse('This contract is not pending your approval', 400)
+    // Check if already paid
+    if (contract.status === 'paid') {
+      return errorResponse('This contract has already been paid', 400)
     }
 
-    // Check if already approved by this user
-    if (
-      (userType === 'engineer' && contract.approvedByEngineer) ||
-      (userType === 'company' && contract.approvedByCompany)
-    ) {
-      return errorResponse('You have already approved this contract', 400)
-    }
-
-    // Update contract with approval
+    // Process payment (Demo - in production, integrate with Stripe/PayPal)
     const now = new Date().toISOString()
-    const updateExpressions: string[] = []
-    const expressionAttributeValues: Record<string, any> = {
-      ':now': now,
-      ':approved': 'approved',
-    }
 
-    if (userType === 'engineer') {
-      updateExpressions.push('approvedByEngineer = :now')
-      updateExpressions.push('#status = :approved')
-    } else {
-      updateExpressions.push('approvedByCompany = :now')
-      updateExpressions.push('#status = :approved')
-    }
+    // デモ用: 実際の支払い処理をシミュレート
+    console.log(`[DEMO] Processing payment for contract ${contractId}`)
+    console.log(`[DEMO] Amount: ¥${contract.contractAmount.toLocaleString()}`)
+    console.log(`[DEMO] Fee: ¥${contract.feeAmount.toLocaleString()}`)
+    console.log(`[DEMO] Total: ¥${(contract.contractAmount + contract.feeAmount).toLocaleString()}`)
 
-    updateExpressions.push('updatedAt = :now')
-
+    // Update contract status to paid
     await docClient.send(
       new UpdateCommand({
         TableName: CONTRACTS_TABLE,
         Key: { contractId },
-        UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-        ExpressionAttributeNames: {
-          '#status': 'status',
-        },
-        ExpressionAttributeValues: expressionAttributeValues,
-      })
-    )
-
-    // 契約が双方承認された場合、案件ステータスを'filled'に更新
-    // (双方承認されたので、statusは'approved'になっている)
-    await docClient.send(
-      new UpdateCommand({
-        TableName: JOBS_TABLE,
-        Key: { jobId: contract.jobId },
-        UpdateExpression: 'SET #status = :filled, updatedAt = :now',
+        UpdateExpression: 'SET #status = :paid, paidAt = :now, updatedAt = :now',
         ExpressionAttributeNames: {
           '#status': 'status',
         },
         ExpressionAttributeValues: {
-          ':filled': 'filled',
+          ':paid': 'paid',
+          ':now': now,
+        },
+      })
+    )
+
+    // 支払い完了後、案件ステータスを'closed'に更新（応募一覧から非表示にする）
+    await docClient.send(
+      new UpdateCommand({
+        TableName: JOBS_TABLE,
+        Key: { jobId: contract.jobId },
+        UpdateExpression: 'SET #status = :closed, updatedAt = :now',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: {
+          ':closed': 'closed',
           ':now': now,
         },
       })
@@ -132,9 +120,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       })
     )
 
-    return successResponse(updatedContractResult.Item)
+    return successResponse({
+      ...updatedContractResult.Item,
+      paymentMessage: 'デモ支払いが完了しました。本番環境では実際の決済処理が行われます。',
+    })
   } catch (error) {
-    console.error('Error approving contract:', error)
-    return errorResponse('Failed to approve contract')
+    console.error('Error processing payment:', error)
+    return errorResponse('Failed to process payment')
   }
 }

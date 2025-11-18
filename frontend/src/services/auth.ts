@@ -113,3 +113,37 @@ export const getCurrentUser = async (): Promise<User | null> => {
     })
   })
 }
+
+export const confirmSignUp = async (email: string, code: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const cognitoUser = new CognitoUser({
+      Username: email,
+      Pool: userPool,
+    })
+
+    cognitoUser.confirmRegistration(code, true, (err, result) => {
+      if (err) {
+        reject(err)
+        return
+      }
+      resolve()
+    })
+  })
+}
+
+export const resendConfirmationCode = async (email: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const cognitoUser = new CognitoUser({
+      Username: email,
+      Pool: userPool,
+    })
+
+    cognitoUser.resendConfirmationCode((err, result) => {
+      if (err) {
+        reject(err)
+        return
+      }
+      resolve()
+    })
+  })
+}

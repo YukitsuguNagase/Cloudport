@@ -18,6 +18,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const body = JSON.parse(event.body || '{}')
 
+    // Validate duration type
+    if (!body.duration?.type || !['short', 'long', 'spot'].includes(body.duration.type)) {
+      return errorResponse('Invalid duration type. Must be short, long, or spot', 400)
+    }
+
     const job: Job = {
       jobId: uuidv4(),
       companyId: user.userId,

@@ -7,6 +7,11 @@ export const getMyProfile = async (): Promise<User> => {
 }
 
 export const updateProfile = async (profile: Partial<UserProfile>): Promise<User> => {
-  const response = await apiClient.put('/users/me', { profile })
+  const response = await apiClient.put('/users/me', profile)
+  return response.data
+}
+
+export const getUserProfile = async (userId: string): Promise<User> => {
+  const response = await apiClient.get(`/users/${userId}`)
   return response.data
 }

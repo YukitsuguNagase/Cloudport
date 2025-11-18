@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Job } from '../../types/job'
 import { getJobs } from '../../services/jobs'
+import { useAuth } from '../../contexts/AuthContext'
 
 function JobList() {
+  const { user } = useAuth()
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -36,12 +38,14 @@ function JobList() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">案件一覧</h1>
-          <Link
-            to="/jobs/new"
-            className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition"
-          >
-            案件を投稿
-          </Link>
+          {user?.userType === 'company' && (
+            <Link
+              to="/jobs/new"
+              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition"
+            >
+              案件を投稿
+            </Link>
+          )}
         </div>
 
         <div className="grid gap-6">
@@ -51,7 +55,19 @@ function JobList() {
               to={`/jobs/${job.jobId}`}
               className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition"
             >
-              <h3 className="text-xl font-bold mb-2">{job.title}</h3>
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="text-xl font-bold">{job.title}</h3>
+                {job.status === 'filled' && (
+                  <span className="px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-800 font-semibold">
+                    募集終了
+                  </span>
+                )}
+                {job.status === 'closed' && (
+                  <span className="px-3 py-1 rounded-full text-xs bg-red-100 text-red-800 font-semibold">
+                    クローズ
+                  </span>
+                )}
+              </div>
               <p className="text-gray-600 mb-4 line-clamp-2">{job.description}</p>
               <div className="flex gap-2 flex-wrap mb-4">
                 {job.requirements.awsServices.map((service) => (
@@ -64,7 +80,9 @@ function JobList() {
                 ))}
               </div>
               <div className="flex justify-between items-center text-sm text-gray-500">
-                <span>{job.duration.type === 'short' ? '短期' : '長期'}</span>
+                <span>
+                  {job.duration.type === 'spot' ? 'スポット' : job.duration.type === 'short' ? '短期' : '長期'}
+                </span>
                 <span>{job.applicationCount}件の応募</span>
               </div>
             </Link>

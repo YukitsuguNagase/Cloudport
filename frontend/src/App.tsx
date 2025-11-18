@@ -4,6 +4,7 @@ import Layout from './components/layout/Layout'
 import Landing from './pages/Landing'
 import SignUp from './pages/SignUp'
 import Login from './pages/Login'
+import VerifyEmail from './pages/VerifyEmail'
 import JobList from './pages/Jobs/JobList'
 import JobDetail from './pages/Jobs/JobDetail'
 import JobForm from './pages/Jobs/JobForm'
@@ -17,6 +18,10 @@ import ContractDetail from './pages/Contracts/ContractDetail'
 import MyPage from './pages/Profile/MyPage'
 import ProfileEdit from './pages/Profile/ProfileEdit'
 import PaymentList from './pages/Payments/PaymentList'
+import EngineerProfileView from './pages/Users/EngineerProfileView'
+import Terms from './pages/Terms'
+import Privacy from './pages/Privacy'
+import Contact from './pages/Contact'
 
 function App() {
   return (
@@ -27,6 +32,10 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/contact" element={<Contact />} />
 
           {/* Protected routes - with layout */}
           <Route path="/jobs" element={<Layout><JobList /></Layout>} />
@@ -45,6 +54,8 @@ function App() {
 
           <Route path="/profile" element={<Layout><MyPage /></Layout>} />
           <Route path="/profile/edit" element={<Layout><ProfileEdit /></Layout>} />
+
+          <Route path="/users/:userId" element={<Layout><EngineerProfileView /></Layout>} />
 
           <Route path="/payments" element={<Layout><PaymentList /></Layout>} />
         </Routes>

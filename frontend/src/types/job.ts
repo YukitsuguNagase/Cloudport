@@ -1,4 +1,4 @@
-export type JobDurationType = 'short' | 'long'
+export type JobDurationType = 'short' | 'long' | 'spot'
 export type JobStatus = 'open' | 'closed' | 'filled'
 
 export interface JobRequirements {

@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 function Footer() {
   return (
     <footer className="bg-gray-900 text-white py-8 mt-auto">
@@ -16,19 +18,19 @@ function Footer() {
             <h3 className="text-lg font-bold mb-4">リンク</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition">
+                <Link to="/terms" className="text-gray-400 hover:text-white transition">
                   利用規約
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition">
+                <Link to="/privacy" className="text-gray-400 hover:text-white transition">
                   プライバシーポリシー
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition">
+                <Link to="/contact" className="text-gray-400 hover:text-white transition">
                   お問い合わせ
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -37,13 +39,15 @@ function Footer() {
           <div>
             <h3 className="text-lg font-bold mb-4">お問い合わせ</h3>
             <p className="text-gray-400 text-sm">
-              support@cloudport.example.com
+              <a href="mailto:yukinag@dotqinc.com" className="hover:text-white transition">
+                yukinag@dotqinc.com
+              </a>
             </p>
           </div>
         </div>
 
         <div className="border-t border-gray-800 pt-8 text-center text-gray-400 text-sm">
-          <p>&copy; 2024 CloudPort. All rights reserved.</p>
+          <p>&copy; 2025 CloudPort. All rights reserved.</p>
         </div>
       </div>
     </footer>

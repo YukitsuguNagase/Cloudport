@@ -1,4 +1,4 @@
-export type ApplicationStatus = 'pending' | 'accepted' | 'rejected'
+export type ApplicationStatus = 'pending' | 'interested' | 'passed'
 
 export interface Application {
   applicationId: string
@@ -8,10 +8,10 @@ export interface Application {
   status: ApplicationStatus
   createdAt: string
   updatedAt: string
+  engineerName?: string
 }
 
 export interface CreateApplicationInput {
-  jobId: string
   message: string
 }
 

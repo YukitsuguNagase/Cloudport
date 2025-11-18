@@ -19,7 +19,7 @@ function SignUp() {
 
     try {
       await signup(email, password, userType)
-      navigate('/login')
+      navigate('/verify-email', { state: { email } })
     } catch (err: any) {
       setError(err.message || 'サインアップに失敗しました')
     } finally {

@@ -35,13 +35,26 @@ Resources:
       StageName: !Ref Environment
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,Authorization'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
         AllowOrigin: "'*'"
+        MaxAge: "'600'"
       Auth:
-        DefaultAuthorizer: CognitoAuthorizer
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !GetAtt UserPool.Arn
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
 
   # Cognito User Pool
   UserPool:
@@ -52,6 +65,11 @@ Resources:
         - email
       UsernameAttributes:
         - email
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate:
+          - email
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
       Schema:
         - Name: email
           Required: true
@@ -73,6 +91,7 @@ Resources:
       ClientName: !Sub cloudport-client-${Environment}
       UserPoolId: !Ref UserPool
       ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
         - ALLOW_USER_PASSWORD_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
       GenerateSecret: false
@@ -236,8 +255,6 @@ Resources:
             RestApiId: !Ref CloudPortApi
             Path: /jobs
             Method: get
-            Auth:
-              Authorizer: NONE
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref JobsTable
@@ -254,8 +271,6 @@ Resources:
             RestApiId: !Ref CloudPortApi
             Path: /jobs/{jobId}
             Method: get
-            Auth:
-              Authorizer: NONE
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref JobsTable
@@ -272,6 +287,8 @@ Resources:
             RestApiId: !Ref CloudPortApi
             Path: /jobs
             Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable
@@ -288,6 +305,8 @@ Resources:
             RestApiId: !Ref CloudPortApi
             Path: /jobs/{jobId}
             Method: put
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable
@@ -304,8 +323,79 @@ Resources:
             RestApiId: !Ref CloudPortApi
             Path: /jobs/{jobId}
             Method: delete
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+
+  # Lambda Functions - Applications
+  ApplyJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/applications/applyJob.handler
+      Events:
+        ApplyJob:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /jobs/{jobId}/apply
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+
+  GetApplicationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/applications/getApplications.handler
+      Events:
+        GetMyApplications:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /applications
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetJobApplications:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /jobs/{jobId}/applications
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ApplicationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  UpdateApplicationStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/applications/updateApplicationStatus.handler
+      Events:
+        UpdateApplicationStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /applications/{applicationId}/status
+            Method: put
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationsTable
+        - DynamoDBReadPolicy:
             TableName: !Ref JobsTable
 
   # Lambda Functions - Users
@@ -321,8 +411,10 @@ Resources:
             RestApiId: !Ref CloudPortApi
             Path: /users/me
             Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
-        - DynamoDBReadPolicy:
+        - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
 
   UpdateProfileFunction:
@@ -337,9 +429,249 @@ Resources:
             RestApiId: !Ref CloudPortApi
             Path: /users/me
             Method: put
+            Auth:
+              Authorizer: CognitoAuthorizer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
+
+  GetUserProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/users/getUserProfile.handler
+      Events:
+        GetUserProfile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /users/{userId}
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  # Lambda Functions - Messages
+  CreateConversationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/messages/createConversation.handler
+      Events:
+        CreateConversation:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /applications/{applicationId}/conversation
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConversationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ApplicationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+
+  GetConversationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/messages/getConversations.handler
+      Events:
+        GetConversations:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /conversations
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ConversationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+
+  SendMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/messages/sendMessage.handler
+      Events:
+        SendMessage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /conversations/{conversationId}/messages
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MessagesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConversationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  GetMessagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/messages/getMessages.handler
+      Events:
+        GetMessages:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /conversations/{conversationId}/messages
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MessagesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ConversationsTable
+
+  MarkAsReadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/messages/markAsRead.handler
+      Events:
+        MarkAsRead:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /conversations/{conversationId}/read
+            Method: put
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConversationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  GetConversationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/messages/getConversation.handler
+      Events:
+        GetConversation:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /conversations/{conversationId}
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ConversationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+
+  # Contract Functions
+  CreateContractFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/contracts/createContract.handler
+      Events:
+        CreateContract:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /contracts
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContractsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ApplicationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+
+  ApproveContractFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/contracts/approveContract.handler
+      Events:
+        ApproveContract:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /contracts/{contractId}/approve
+            Method: put
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContractsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+
+  GetContractsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/contracts/getContracts.handler
+      Events:
+        GetContracts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /contracts
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ContractsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+
+  ProcessPaymentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/contracts/processPayment.handler
+      Events:
+        ProcessPayment:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /contracts/{contractId}/payment
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContractsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
 
 Outputs:
   ApiEndpoint:

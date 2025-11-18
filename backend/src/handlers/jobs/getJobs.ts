@@ -6,12 +6,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const params = {
       TableName: TABLE_NAMES.JOBS,
-      FilterExpression: '#status = :status',
+      FilterExpression: '#status = :open OR #status = :filled',
       ExpressionAttributeNames: {
         '#status': 'status',
       },
       ExpressionAttributeValues: {
-        ':status': 'open',
+        ':open': 'open',
+        ':filled': 'filled',
       },
     }
 
