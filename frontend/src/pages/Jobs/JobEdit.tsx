@@ -26,10 +26,10 @@ function JobEdit() {
   const [budgetMax, setBudgetMax] = useState<number | ''>('')
 
   useEffect(() => {
-    if (jobId) {
+    if (jobId && user) {
       fetchJob()
     }
-  }, [jobId])
+  }, [jobId, user])
 
   const fetchJob = async () => {
     try {
