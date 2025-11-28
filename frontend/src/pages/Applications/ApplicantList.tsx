@@ -149,21 +149,6 @@ function ApplicantList() {
                   <p className="text-sm text-gray-500">
                     応募日: {new Date(application.createdAt).toLocaleDateString()}
                   </p>
-                  <div className="flex gap-3 mt-2">
-                    <Link
-                      to={`/users/${application.engineerId}`}
-                      className="text-primary-600 hover:underline text-sm"
-                    >
-                      応募者のプロフィールを見る →
-                    </Link>
-                    <button
-                      onClick={() => handleStartConversation(application.applicationId)}
-                      disabled={creatingConversation === application.applicationId}
-                      className="text-blue-600 hover:underline text-sm disabled:text-gray-400 disabled:cursor-not-allowed"
-                    >
-                      {creatingConversation === application.applicationId ? 'メッセージを開いています...' : 'メッセージを送る'}
-                    </button>
-                  </div>
                 </div>
               </div>
 
@@ -176,11 +161,17 @@ function ApplicantList() {
 
               {application.status === 'pending' && (
                 <div className="flex gap-3">
+                  <Link
+                    to={`/users/${application.engineerId}`}
+                    className="flex-1 bg-white border-2 border-primary-600 text-primary-600 py-2 px-4 rounded-lg hover:bg-primary-50 transition text-center"
+                  >
+                    プロフィールを見る
+                  </Link>
                   <button
                     onClick={() => handleStatusUpdate(application.applicationId, 'interested')}
                     className="flex-1 bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition"
                   >
-                    興味あり（メッセージ可）
+                    興味あり
                   </button>
                   <button
                     onClick={() => handleStatusUpdate(application.applicationId, 'passed')}
@@ -192,14 +183,34 @@ function ApplicantList() {
               )}
 
               {application.status === 'interested' && (
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <p className="text-green-800 text-sm">この応募者に興味ありとマークしました。メッセージでやり取りできます。</p>
+                <div className="flex gap-3">
+                  <Link
+                    to={`/users/${application.engineerId}`}
+                    className="flex-1 bg-white border-2 border-primary-600 text-primary-600 py-2 px-4 rounded-lg hover:bg-primary-50 transition text-center"
+                  >
+                    プロフィールを見る
+                  </Link>
+                  <button
+                    onClick={() => handleStartConversation(application.applicationId)}
+                    disabled={creatingConversation === application.applicationId}
+                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {creatingConversation === application.applicationId ? 'メッセージを開いています...' : 'メッセージを送る'}
+                  </button>
                 </div>
               )}
 
               {application.status === 'passed' && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-gray-800 text-sm">この応募を見送りました</p>
+                <div>
+                  <Link
+                    to={`/users/${application.engineerId}`}
+                    className="block w-full bg-white border-2 border-gray-400 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-50 transition text-center mb-3"
+                  >
+                    プロフィールを見る
+                  </Link>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-gray-800 text-sm">この応募を見送りました</p>
+                  </div>
                 </div>
               )}
             </div>

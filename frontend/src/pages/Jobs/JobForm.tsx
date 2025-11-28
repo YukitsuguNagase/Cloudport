@@ -17,6 +17,8 @@ function JobForm() {
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedCertifications, setSelectedCertifications] = useState<string[]>([])
   const [experience, setExperience] = useState('')
+  const [requiredSkills, setRequiredSkills] = useState('')
+  const [preferredSkills, setPreferredSkills] = useState('')
   const [durationType, setDurationType] = useState<JobDurationType>('long')
   const [durationMonths, setDurationMonths] = useState<number | ''>('')
   const [budgetMin, setBudgetMin] = useState<number | ''>('')
@@ -66,7 +68,7 @@ function JobForm() {
     setLoading(true)
 
     if (selectedServices.length === 0) {
-      setError('必要なAWSサービスを少なくとも1つ選択してください')
+      setError('主要AWSサービスを少なくとも1つ選択してください')
       setLoading(false)
       return
     }
@@ -79,6 +81,8 @@ function JobForm() {
           awsServices: selectedServices,
           certifications: selectedCertifications.length > 0 ? selectedCertifications : undefined,
           experience: experience || undefined,
+          requiredSkills: requiredSkills ? requiredSkills.split('\n').filter(s => s.trim()) : undefined,
+          preferredSkills: preferredSkills ? preferredSkills.split('\n').filter(s => s.trim()) : undefined,
         },
         duration: {
           type: durationType,
@@ -151,7 +155,7 @@ function JobForm() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                必要なAWSサービス <span className="text-red-500">*</span>
+                主要AWSサービス <span className="text-red-500">*</span>
               </label>
               <div className="space-y-4 max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4">
                 {AWS_SERVICE_CATEGORIES.map(category => (
@@ -223,6 +227,32 @@ function JobForm() {
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="例: AWS上でのWebアプリケーション開発経験3年以上"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                必須スキル（任意）
+              </label>
+              <textarea
+                value={requiredSkills}
+                onChange={(e) => setRequiredSkills(e.target.value)}
+                rows={5}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="1行に1つずつスキルを入力してください&#10;例:&#10;Terraformを使用したIaC実装経験&#10;CI/CDパイプラインの構築・運用経験&#10;コンテナオーケストレーション(ECS/EKS)の知識"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                歓迎スキル（任意）
+              </label>
+              <textarea
+                value={preferredSkills}
+                onChange={(e) => setPreferredSkills(e.target.value)}
+                rows={5}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="1行に1つずつスキルを入力してください&#10;例:&#10;マイクロサービスアーキテクチャの設計経験&#10;セキュリティ対策の実装経験&#10;英語でのドキュメント作成能力"
               />
             </div>
 

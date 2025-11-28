@@ -164,7 +164,7 @@ function JobDetail() {
             </div>
 
             <div>
-              <h2 className="text-xl font-bold mb-3">必要なAWSサービス</h2>
+              <h2 className="text-xl font-bold mb-3">主要AWSサービス</h2>
               <div className="flex flex-wrap gap-2">
                 {job.requirements.awsServices.map((service) => (
                   <span
@@ -179,7 +179,7 @@ function JobDetail() {
 
             {job.requirements.certifications && job.requirements.certifications.length > 0 && (
               <div>
-                <h2 className="text-xl font-bold mb-3">必要な資格</h2>
+                <h2 className="text-xl font-bold mb-3">必要なAWS資格</h2>
                 <div className="flex flex-wrap gap-2">
                   {job.requirements.certifications.map((cert, index) => (
                     <span
@@ -197,6 +197,28 @@ function JobDetail() {
               <div>
                 <h2 className="text-xl font-bold mb-3">必要な経験</h2>
                 <p className="text-gray-700">{job.requirements.experience}</p>
+              </div>
+            )}
+
+            {job.requirements.requiredSkills && job.requirements.requiredSkills.length > 0 && (
+              <div>
+                <h2 className="text-xl font-bold mb-3">必須スキル</h2>
+                <ul className="list-disc list-inside space-y-1 text-gray-700">
+                  {job.requirements.requiredSkills.map((skill, index) => (
+                    <li key={index}>{skill}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {job.requirements.preferredSkills && job.requirements.preferredSkills.length > 0 && (
+              <div>
+                <h2 className="text-xl font-bold mb-3">歓迎スキル</h2>
+                <ul className="list-disc list-inside space-y-1 text-gray-700">
+                  {job.requirements.preferredSkills.map((skill, index) => (
+                    <li key={index}>{skill}</li>
+                  ))}
+                </ul>
               </div>
             )}
 

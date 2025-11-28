@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getConversation, getMessages, sendMessage, markAsRead } from '../../services/messages'
 import { Message, Conversation } from '../../types/message'
-import { createContract } from '../../services/contracts'
+import { createContract, getContracts } from '../../services/contracts'
+import { Contract } from '../../types/contract'
 import { useAuth } from '../../contexts/AuthContext'
 
 function ChatRoom() {
@@ -18,12 +19,14 @@ function ChatRoom() {
   const [showContractForm, setShowContractForm] = useState(false)
   const [contractAmount, setContractAmount] = useState('')
   const [creatingContract, setCreatingContract] = useState(false)
+  const [existingContract, setExistingContract] = useState<Contract | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (conversationId) {
       fetchConversationDetails()
       fetchMessages()
+      checkExistingContract()
       // Mark messages as read when entering the chat room
       markAsRead(conversationId).catch(console.error)
     }
@@ -56,6 +59,20 @@ function ChatRoom() {
       setError(err.message || 'メッセージの取得に失敗しました')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkExistingContract = async () => {
+    try {
+      const contracts = await getContracts()
+      const conversation = await getConversation(conversationId!)
+
+      if (conversation.applicationId) {
+        const contract = contracts.find(c => c.applicationId === conversation.applicationId)
+        setExistingContract(contract || null)
+      }
+    } catch (err) {
+      console.error('Failed to check existing contract:', err)
     }
   }
 
@@ -102,14 +119,14 @@ function ChatRoom() {
 
     try {
       setCreatingContract(true)
-      await createContract({
+      const contract = await createContract({
         applicationId: conversation.applicationId,
         contractAmount: amount,
       })
+      setExistingContract(contract)
       alert('契約申請を送信しました。相手の承認をお待ちください。')
       setShowContractForm(false)
       setContractAmount('')
-      navigate('/contracts')
     } catch (err: any) {
       alert(err.message || '契約申請に失敗しました')
     } finally {
@@ -164,7 +181,7 @@ function ChatRoom() {
                     案件: {conversation.jobTitle || '不明'}
                   </p>
                 </div>
-                {user?.userType === 'company' && (
+                {user?.userType === 'company' && !existingContract && (
                   <button
                     onClick={() => setShowContractForm(!showContractForm)}
                     className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition text-sm"
@@ -172,10 +189,23 @@ function ChatRoom() {
                     {showContractForm ? 'キャンセル' : '契約申請'}
                   </button>
                 )}
+                {existingContract && (
+                  <div className="text-sm">
+                    <Link
+                      to="/contracts"
+                      className="px-4 py-2 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition inline-flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      契約申請済み
+                    </Link>
+                  </div>
+                )}
               </div>
 
               {/* Contract form */}
-              {user?.userType === 'company' && showContractForm && (
+              {user?.userType === 'company' && !existingContract && showContractForm && (
                 <form onSubmit={handleCreateContract} className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
                   <h3 className="text-md font-bold mb-3">契約申請フォーム</h3>
                   <div className="mb-4">

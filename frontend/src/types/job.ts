@@ -5,6 +5,8 @@ export interface JobRequirements {
   awsServices: string[]
   certifications?: string[]
   experience?: string
+  requiredSkills?: string[]
+  preferredSkills?: string[]
 }
 
 export interface JobDuration {

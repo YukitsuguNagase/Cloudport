@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { getJobDetail, updateJob } from '../../services/jobs'
+import { getJobDetail, updateJob, deleteJob } from '../../services/jobs'
 import { UpdateJobInput, JobDurationType, Job } from '../../types/job'
 import { AWS_SERVICES, AWS_SERVICE_CATEGORIES } from '../../constants/awsServices'
 import { AWS_CERTIFICATIONS } from '../../constants/awsCertifications'
@@ -11,6 +11,7 @@ function JobEdit() {
   const { jobId } = useParams<{ jobId: string }>()
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [fetchingJob, setFetchingJob] = useState(true)
   const [error, setError] = useState('')
   const [job, setJob] = useState<Job | null>(null)
@@ -20,6 +21,8 @@ function JobEdit() {
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedCertifications, setSelectedCertifications] = useState<string[]>([])
   const [experience, setExperience] = useState('')
+  const [requiredSkills, setRequiredSkills] = useState('')
+  const [preferredSkills, setPreferredSkills] = useState('')
   const [durationType, setDurationType] = useState<JobDurationType>('long')
   const [durationMonths, setDurationMonths] = useState<number | ''>('')
   const [budgetMin, setBudgetMin] = useState<number | ''>('')
@@ -49,6 +52,8 @@ function JobEdit() {
       setSelectedServices(jobData.requirements.awsServices)
       setSelectedCertifications(jobData.requirements.certifications || [])
       setExperience(jobData.requirements.experience || '')
+      setRequiredSkills(jobData.requirements.requiredSkills?.join('\n') || '')
+      setPreferredSkills(jobData.requirements.preferredSkills?.join('\n') || '')
       setDurationType(jobData.duration.type)
       setDurationMonths(jobData.duration.months || '')
       setBudgetMin(jobData.budget?.min || '')
@@ -129,7 +134,7 @@ function JobEdit() {
     setLoading(true)
 
     if (selectedServices.length === 0) {
-      setError('必要なAWSサービスを少なくとも1つ選択してください')
+      setError('主要AWSサービスを少なくとも1つ選択してください')
       setLoading(false)
       return
     }
@@ -142,6 +147,8 @@ function JobEdit() {
           awsServices: selectedServices,
           certifications: selectedCertifications.length > 0 ? selectedCertifications : undefined,
           experience: experience || undefined,
+          requiredSkills: requiredSkills ? requiredSkills.split('\n').filter(s => s.trim()) : undefined,
+          preferredSkills: preferredSkills ? preferredSkills.split('\n').filter(s => s.trim()) : undefined,
         },
         duration: {
           type: durationType,
@@ -162,6 +169,23 @@ function JobEdit() {
       setError(err.message || '案件の更新に失敗しました')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirm('この案件を削除しますか？\n\n削除すると、関連する応募情報も全て削除されます。この操作は取り消せません。')) {
+      return
+    }
+
+    try {
+      setDeleting(true)
+      await deleteJob(jobId!)
+      alert('案件を削除しました')
+      navigate('/jobs')
+    } catch (err: any) {
+      alert(err.message || '案件の削除に失敗しました')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -214,7 +238,7 @@ function JobEdit() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                必要なAWSサービス <span className="text-red-500">*</span>
+                主要AWSサービス <span className="text-red-500">*</span>
               </label>
               <div className="space-y-4 max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4">
                 {AWS_SERVICE_CATEGORIES.map(category => (
@@ -286,6 +310,32 @@ function JobEdit() {
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="例: AWS上でのWebアプリケーション開発経験3年以上"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                必須スキル（任意）
+              </label>
+              <textarea
+                value={requiredSkills}
+                onChange={(e) => setRequiredSkills(e.target.value)}
+                rows={5}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="1行に1つずつスキルを入力してください&#10;例:&#10;Terraformを使用したIaC実装経験&#10;CI/CDパイプラインの構築・運用経験&#10;コンテナオーケストレーション(ECS/EKS)の知識"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                歓迎スキル（任意）
+              </label>
+              <textarea
+                value={preferredSkills}
+                onChange={(e) => setPreferredSkills(e.target.value)}
+                rows={5}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="1行に1つずつスキルを入力してください&#10;例:&#10;マイクロサービスアーキテクチャの設計経験&#10;セキュリティ対策の実装経験&#10;英語でのドキュメント作成能力"
               />
             </div>
 
@@ -383,6 +433,20 @@ function JobEdit() {
               </button>
             </div>
           </form>
+
+          {/* Delete button outside of form */}
+          <div className="mt-8 pt-8 border-t border-gray-200">
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleting ? '削除中...' : 'この案件を削除'}
+            </button>
+            <p className="text-sm text-gray-500 text-center mt-2">
+              削除すると、関連する応募情報も全て削除されます。この操作は取り消せません。
+            </p>
+          </div>
         </div>
       </div>
     </div>
