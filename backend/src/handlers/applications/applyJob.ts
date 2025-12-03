@@ -4,6 +4,7 @@ import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, QueryCom
 import { v4 as uuidv4 } from 'uuid'
 import { successResponse, errorResponse } from '../../utils/response.js'
 import { Application } from '../../models/Application.js'
+import { createNotification } from '../../utils/notifications.js'
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
@@ -96,6 +97,17 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         },
       })
     )
+
+    // Create notification for company (job owner)
+    const job = jobResult.Item
+    await createNotification({
+      userId: job.companyId,
+      type: 'new_application',
+      title: '新規応募がありました',
+      message: `案件「${job.title}」に新しい応募がありました`,
+      link: `/jobs/${jobId}/applicants`,
+      relatedId: application.applicationId,
+    })
 
     return successResponse(application, 201)
   } catch (error) {

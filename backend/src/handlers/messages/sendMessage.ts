@@ -3,6 +3,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
 import { successResponse, errorResponse } from '../../utils/response.js'
 import { v4 as uuidv4 } from 'uuid'
+import { createNotification } from '../../utils/notifications.js'
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
@@ -101,6 +102,17 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         },
       })
     )
+
+    // Create notification for the recipient
+    const recipientId = senderType === 'engineer' ? conversation.companyId : conversation.engineerId
+    await createNotification({
+      userId: recipientId,
+      type: 'new_message',
+      title: '新しいメッセージが届きました',
+      message: content.trim().length > 50 ? content.trim().substring(0, 50) + '...' : content.trim(),
+      link: `/messages/${conversationId}`,
+      relatedId: messageId,
+    })
 
     return successResponse(message)
   } catch (error) {

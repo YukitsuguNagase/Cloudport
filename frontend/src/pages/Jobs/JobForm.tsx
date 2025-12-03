@@ -5,15 +5,19 @@ import { createJob } from '../../services/jobs'
 import { CreateJobInput, JobDurationType } from '../../types/job'
 import { AWS_SERVICES, AWS_SERVICE_CATEGORIES } from '../../constants/awsServices'
 import { AWS_CERTIFICATIONS } from '../../constants/awsCertifications'
+import { validateJobForm, sanitizeInput } from '../../utils/validation'
+import { useToast } from '../../contexts/ToastContext'
 
 function JobForm() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { showError } = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [location, setLocation] = useState('')
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedCertifications, setSelectedCertifications] = useState<string[]>([])
   const [experience, setExperience] = useState('')
@@ -27,13 +31,17 @@ function JobForm() {
   // 企業以外はアクセス不可
   if (user?.userType !== 'company') {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center py-20 text-red-600">
-            この機能は企業アカウント専用です
-          </div>
-          <div className="text-center">
-            <Link to="/jobs" className="text-primary-600 hover:underline">
+      <div className="min-h-screen bg-gradient-to-br from-[#0A1628] via-[#1A2942] to-[#2C4875] relative overflow-hidden flex flex-col">
+        <div className="absolute inset-0 tech-grid opacity-20"></div>
+        <div className="container mx-auto px-4 py-8 relative z-10 flex-1">
+          <div className="glass-dark p-12 rounded-2xl border border-[#FF6B35]/30 shadow-2xl text-center animate-scale-in">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#FF6B35]/10 mb-4">
+              <svg className="w-8 h-8 text-[#FF6B35]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <p className="text-[#FF6B35] mb-4">この機能は企業アカウント専用です</p>
+            <Link to="/jobs" className="text-[#00E5FF] hover:text-[#5B8DEF] hover:underline transition-colors duration-300">
               案件一覧に戻る
             </Link>
           </div>
@@ -67,22 +75,39 @@ function JobForm() {
     setError('')
     setLoading(true)
 
+    // Validate form
+    const validation = validateJobForm({
+      title,
+      description,
+      budgetMin,
+      budgetMax
+    })
+
+    if (!validation.isValid) {
+      setError(validation.error!)
+      setLoading(false)
+      showError(validation.error!)
+      return
+    }
+
     if (selectedServices.length === 0) {
       setError('主要AWSサービスを少なくとも1つ選択してください')
       setLoading(false)
+      showError('主要AWSサービスを少なくとも1つ選択してください')
       return
     }
 
     try {
       const jobData: CreateJobInput = {
-        title,
-        description,
+        title: sanitizeInput(title),
+        description: sanitizeInput(description),
+        location: location ? sanitizeInput(location) : undefined,
         requirements: {
           awsServices: selectedServices,
           certifications: selectedCertifications.length > 0 ? selectedCertifications : undefined,
-          experience: experience || undefined,
-          requiredSkills: requiredSkills ? requiredSkills.split('\n').filter(s => s.trim()) : undefined,
-          preferredSkills: preferredSkills ? preferredSkills.split('\n').filter(s => s.trim()) : undefined,
+          experience: experience ? sanitizeInput(experience) : undefined,
+          requiredSkills: requiredSkills ? requiredSkills.split('\n').filter(s => s.trim()).map(s => sanitizeInput(s)) : undefined,
+          preferredSkills: preferredSkills ? preferredSkills.split('\n').filter(s => s.trim()).map(s => sanitizeInput(s)) : undefined,
         },
         duration: {
           type: durationType,
@@ -107,70 +132,91 @@ function JobForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="mb-6">
-          <Link to="/jobs" className="text-primary-600 hover:underline">
+    <div className="min-h-screen bg-gradient-to-br from-[#0A1628] via-[#1A2942] to-[#2C4875] relative overflow-hidden flex flex-col">
+      {/* Background effects */}
+      <div className="absolute inset-0 tech-grid opacity-20"></div>
+      <div className="absolute top-20 left-10 w-72 h-72 bg-[#00E5FF]/10 rounded-full blur-3xl animate-cloud-float"></div>
+      <div className="absolute bottom-20 right-10 w-96 h-96 bg-[#FF6B35]/10 rounded-full blur-3xl animate-cloud-float" style={{ animationDelay: '2s' }}></div>
+
+      <div className="container mx-auto px-4 py-8 max-w-4xl relative z-10 flex-1">
+        <div className="mb-6 animate-slide-down">
+          <Link to="/jobs" className="text-[#00E5FF] hover:text-[#5B8DEF] hover:underline transition-colors duration-300 font-medium">
             ← 案件一覧に戻る
           </Link>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-3xl font-bold mb-6">案件投稿</h1>
+        <div className="glass-dark rounded-2xl border border-[#00E5FF]/20 shadow-2xl p-8 animate-slide-up">
+          <h1 className="text-3xl font-bold text-white mb-6 font-mono">案件投稿</h1>
 
           {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
+            <div className="bg-[#FF6B35]/10 border border-[#FF6B35]/30 text-[#FF6B35] p-4 rounded-lg mb-6">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                案件タイトル <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-white mb-2">
+                案件タイトル <span className="text-[#FF6B35]">*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
                 placeholder="例: AWSインフラ構築支援エンジニア募集"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                案件詳細 <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-white mb-2">
+                案件詳細 <span className="text-[#FF6B35]">*</span>
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 required
                 rows={8}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300 resize-none"
                 placeholder="案件の詳細を記載してください"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                主要AWSサービス <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-white mb-2">
+                勤務地
               </label>
-              <div className="space-y-4 max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4">
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
+                placeholder="例: 東京都渋谷区（リモート可）、フルリモート"
+              />
+              <p className="mt-1 text-sm text-[#E8EEF7]/60">
+                勤務地やリモート可否を記載してください
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-3">
+                主要AWSサービス <span className="text-[#FF6B35]">*</span>
+              </label>
+              <div className="space-y-4 max-h-96 overflow-y-auto bg-[#0A1628]/30 border border-[#00E5FF]/10 rounded-lg p-4">
                 {AWS_SERVICE_CATEGORIES.map(category => (
                   <div key={category}>
-                    <h3 className="text-xs font-semibold text-gray-600 mb-2">{category}</h3>
+                    <h3 className="text-xs font-semibold text-[#00E5FF] mb-2">{category}</h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {AWS_SERVICES.filter(s => s.category === category).map(service => (
-                        <label key={service.id} className="flex items-center">
+                        <label key={service.id} className="flex items-center cursor-pointer hover:bg-[#00E5FF]/5 p-2 rounded transition-colors duration-200">
                           <input
                             type="checkbox"
                             checked={selectedServices.includes(service.name)}
                             onChange={() => handleServiceToggle(service.name)}
-                            className="mr-2 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                            className="mr-2 h-4 w-4 text-[#00E5FF] focus:ring-[#00E5FF] border-[#00E5FF]/30 rounded bg-[#0A1628]/50"
                           />
-                          <span className="text-sm text-gray-700">{service.name}</span>
+                          <span className="text-sm text-[#E8EEF7]">{service.name}</span>
                         </label>
                       ))}
                     </div>
@@ -182,7 +228,7 @@ function JobForm() {
                   {selectedServices.map(service => (
                     <span
                       key={service}
-                      className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
+                      className="px-3 py-1 bg-[#00E5FF]/20 border border-[#00E5FF]/40 text-[#00E5FF] rounded-full text-sm font-medium"
                     >
                       {service}
                     </span>
@@ -192,23 +238,23 @@ function JobForm() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-white mb-3">
                 必要なAWS資格（任意）
               </label>
-              <div className="space-y-3 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-4">
+              <div className="space-y-3 max-h-64 overflow-y-auto bg-[#0A1628]/30 border border-[#00E5FF]/10 rounded-lg p-4">
                 {['Foundational', 'Associate', 'Professional', 'Specialty'].map(category => (
                   <div key={category}>
-                    <h3 className="text-xs font-semibold text-gray-600 mb-2">{category}</h3>
+                    <h3 className="text-xs font-semibold text-[#00E5FF] mb-2">{category}</h3>
                     <div className="space-y-1">
                       {AWS_CERTIFICATIONS.filter(c => c.category === category).map(cert => (
-                        <label key={cert.id} className="flex items-center">
+                        <label key={cert.id} className="flex items-center cursor-pointer hover:bg-[#00E5FF]/5 p-2 rounded transition-colors duration-200">
                           <input
                             type="checkbox"
                             checked={selectedCertifications.includes(cert.name)}
                             onChange={() => handleCertificationToggle(cert.name)}
-                            className="mr-2 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                            className="mr-2 h-4 w-4 text-[#00E5FF] focus:ring-[#00E5FF] border-[#00E5FF]/30 rounded bg-[#0A1628]/50"
                           />
-                          <span className="text-sm text-gray-700">{cert.name}</span>
+                          <span className="text-sm text-[#E8EEF7]">{cert.name}</span>
                         </label>
                       ))}
                     </div>
@@ -218,79 +264,79 @@ function JobForm() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-white mb-2">
                 必要な経験（任意）
               </label>
               <textarea
                 value={experience}
                 onChange={(e) => setExperience(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300 resize-none"
                 placeholder="例: AWS上でのWebアプリケーション開発経験3年以上"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-white mb-2">
                 必須スキル（任意）
               </label>
               <textarea
                 value={requiredSkills}
                 onChange={(e) => setRequiredSkills(e.target.value)}
                 rows={5}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300 resize-none"
                 placeholder="1行に1つずつスキルを入力してください&#10;例:&#10;Terraformを使用したIaC実装経験&#10;CI/CDパイプラインの構築・運用経験&#10;コンテナオーケストレーション(ECS/EKS)の知識"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-white mb-2">
                 歓迎スキル（任意）
               </label>
               <textarea
                 value={preferredSkills}
                 onChange={(e) => setPreferredSkills(e.target.value)}
                 rows={5}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300 resize-none"
                 placeholder="1行に1つずつスキルを入力してください&#10;例:&#10;マイクロサービスアーキテクチャの設計経験&#10;セキュリティ対策の実装経験&#10;英語でのドキュメント作成能力"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                期間 <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-white mb-2">
+                期間 <span className="text-[#FF6B35]">*</span>
               </label>
               <div className="space-y-3">
                 <div className="flex gap-4">
-                  <label className="flex items-center">
+                  <label className="flex items-center cursor-pointer">
                     <input
                       type="radio"
                       value="spot"
                       checked={durationType === 'spot'}
                       onChange={(e) => setDurationType(e.target.value as JobDurationType)}
-                      className="mr-2"
+                      className="mr-2 text-[#00E5FF] focus:ring-[#00E5FF]"
                     />
-                    スポット
+                    <span className="text-[#E8EEF7]">スポット</span>
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex items-center cursor-pointer">
                     <input
                       type="radio"
                       value="short"
                       checked={durationType === 'short'}
                       onChange={(e) => setDurationType(e.target.value as JobDurationType)}
-                      className="mr-2"
+                      className="mr-2 text-[#00E5FF] focus:ring-[#00E5FF]"
                     />
-                    短期
+                    <span className="text-[#E8EEF7]">短期</span>
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex items-center cursor-pointer">
                     <input
                       type="radio"
                       value="long"
                       checked={durationType === 'long'}
                       onChange={(e) => setDurationType(e.target.value as JobDurationType)}
-                      className="mr-2"
+                      className="mr-2 text-[#00E5FF] focus:ring-[#00E5FF]"
                     />
-                    長期
+                    <span className="text-[#E8EEF7]">長期</span>
                   </label>
                 </div>
                 {durationType !== 'spot' && (
@@ -299,7 +345,7 @@ function JobForm() {
                       type="number"
                       value={durationMonths}
                       onChange={(e) => setDurationMonths(e.target.value ? parseInt(e.target.value) : '')}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
                       placeholder="期間（ヶ月）※任意"
                       min="1"
                     />
@@ -309,7 +355,7 @@ function JobForm() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-white mb-2">
                 {durationType === 'spot' ? '予算（任意）' : '月額単価（任意）'}
               </label>
               <div className="flex gap-4 items-center">
@@ -317,16 +363,16 @@ function JobForm() {
                   type="number"
                   value={budgetMin}
                   onChange={(e) => setBudgetMin(e.target.value ? parseInt(e.target.value) : '')}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="flex-1 px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
                   placeholder={durationType === 'spot' ? '最低予算（円）' : '最低単価（円/月）'}
                   min="0"
                 />
-                <span>〜</span>
+                <span className="text-[#E8EEF7]/60">〜</span>
                 <input
                   type="number"
                   value={budgetMax}
                   onChange={(e) => setBudgetMax(e.target.value ? parseInt(e.target.value) : '')}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="flex-1 px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
                   placeholder={durationType === 'spot' ? '最高予算（円）' : '最高単価（円/月）'}
                   min="0"
                 />
@@ -337,14 +383,14 @@ function JobForm() {
               <button
                 type="button"
                 onClick={() => navigate('/jobs')}
-                className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition"
+                className="flex-1 bg-[#E8EEF7]/10 border border-[#E8EEF7]/30 text-[#E8EEF7] py-3 rounded-lg font-semibold hover:bg-[#E8EEF7]/20 transition-all duration-300"
               >
                 キャンセル
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 transition disabled:opacity-50"
+                className="flex-1 bg-gradient-to-r from-[#00E5FF] to-[#5B8DEF] text-white py-3 rounded-lg font-semibold hover:shadow-lg hover:shadow-[#00E5FF]/30 transition-all duration-300 disabled:opacity-50"
               >
                 {loading ? '投稿中...' : '投稿する'}
               </button>

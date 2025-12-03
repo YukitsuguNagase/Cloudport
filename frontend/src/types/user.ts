@@ -1,11 +1,5 @@
 export type UserType = 'engineer' | 'company'
 
-// 共通の基本情報
-interface BasePrivateInfo {
-  email: string
-  phone?: string
-}
-
 // 技術者プロフィール
 export interface EngineerProfile {
   // 基本情報（非公開）
@@ -18,10 +12,12 @@ export interface EngineerProfile {
   }
 
   // 公開情報
+  name?: string
   displayName: string
   avatar?: string
   bio?: string
   location?: string // 都道府県のみ
+  preferredLocation?: string // 希望勤務地
   workStyle?: ('remote' | 'onsite' | 'hybrid')[]
   availableHours?: number // 週の稼働可能時間
 
@@ -62,6 +58,11 @@ export interface EngineerProfile {
     availableFrom?: string
     availableDaysPerWeek?: number
   }
+  hourlyRate?: {
+    min?: number
+    max?: number
+    currency: string
+  }
 
   // ポートフォリオ
   portfolio?: {
@@ -72,6 +73,36 @@ export interface EngineerProfile {
       twitter?: string
       linkedin?: string
     }
+  }
+
+  // 新規追加フィールド
+  awsExperienceYears?: {
+    service: string
+    years: number
+  }[]
+  desiredMonthlyRate?: {
+    min?: number
+    max?: number
+    currency: string
+  }
+  availableStartDate?: string
+  pastProjects?: Array<{
+    title: string
+    description: string
+    role: string
+    period: string
+    awsServices?: string[]
+  }>
+  platformRating?: {
+    average: number
+    count: number
+    reviews?: Array<{
+      companyId: string
+      companyName: string
+      rating: number
+      comment?: string
+      createdAt: string
+    }>
   }
 }
 
@@ -87,9 +118,14 @@ export interface CompanyProfile {
     contactPerson: string
     contactDepartment: string
   }
+  contactEmail?: string
+  phoneNumber?: string
+  industry?: string[]
 
   // 公開情報
+  name?: string
   logo?: string
+  description?: string
   businessDescription?: string
   companyIntroduction?: string
   establishedAt?: string

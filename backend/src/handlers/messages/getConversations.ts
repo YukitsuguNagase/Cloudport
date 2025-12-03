@@ -73,6 +73,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         return {
           ...conversation,
           jobTitle: jobResult.Item?.title,
+          jobDescription: jobResult.Item?.description,
           otherUser: otherUserResult.Item
             ? {
                 userId: otherUserResult.Item.userId,

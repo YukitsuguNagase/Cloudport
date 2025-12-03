@@ -11,6 +11,7 @@ export const TABLE_NAMES = {
   CONVERSATIONS: process.env.CONVERSATIONS_TABLE || 'cloudport-conversations',
   MESSAGES: process.env.MESSAGES_TABLE || 'cloudport-messages',
   CONTRACTS: process.env.CONTRACTS_TABLE || 'cloudport-contracts',
+  SCOUTS: process.env.SCOUTS_TABLE || 'cloudport-scouts',
 }
 
 export { GetCommand, PutCommand, UpdateCommand, DeleteCommand, QueryCommand, ScanCommand }

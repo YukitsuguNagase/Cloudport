@@ -31,7 +31,7 @@ export const signup = async (
       }),
     ]
 
-    userPool.signUp(email, password, attributeList, [], (err, result) => {
+    userPool.signUp(email, password, attributeList, [], (err) => {
       if (err) {
         reject(err)
         return
@@ -121,7 +121,7 @@ export const confirmSignUp = async (email: string, code: string): Promise<void> 
       Pool: userPool,
     })
 
-    cognitoUser.confirmRegistration(code, true, (err, result) => {
+    cognitoUser.confirmRegistration(code, true, (err) => {
       if (err) {
         reject(err)
         return
@@ -138,12 +138,78 @@ export const resendConfirmationCode = async (email: string): Promise<void> => {
       Pool: userPool,
     })
 
-    cognitoUser.resendConfirmationCode((err, result) => {
+    cognitoUser.resendConfirmationCode((err) => {
       if (err) {
         reject(err)
         return
       }
       resolve()
+    })
+  })
+}
+
+export const forgotPassword = async (email: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const cognitoUser = new CognitoUser({
+      Username: email,
+      Pool: userPool,
+    })
+
+    cognitoUser.forgotPassword({
+      onSuccess: () => {
+        resolve()
+      },
+      onFailure: (err) => {
+        reject(err)
+      },
+    })
+  })
+}
+
+export const confirmPassword = async (
+  email: string,
+  code: string,
+  newPassword: string
+): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const cognitoUser = new CognitoUser({
+      Username: email,
+      Pool: userPool,
+    })
+
+    cognitoUser.confirmPassword(code, newPassword, {
+      onSuccess: () => {
+        resolve()
+      },
+      onFailure: (err) => {
+        reject(err)
+      },
+    })
+  })
+}
+
+export const getIdToken = async (): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const cognitoUser = userPool.getCurrentUser()
+
+    if (!cognitoUser) {
+      reject(new Error('No user logged in'))
+      return
+    }
+
+    cognitoUser.getSession((err: Error | null, session: any) => {
+      if (err) {
+        reject(err)
+        return
+      }
+
+      if (!session.isValid()) {
+        reject(new Error('Session is not valid'))
+        return
+      }
+
+      const token = session.getIdToken().getJwtToken()
+      resolve(token)
     })
   })
 }

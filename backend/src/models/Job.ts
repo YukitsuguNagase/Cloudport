@@ -22,8 +22,10 @@ export interface JobBudget {
 export interface Job {
   jobId: string
   companyId: string
+  companyName?: string
   title: string
   description: string
+  location?: string
   requirements: JobRequirements
   duration: JobDuration
   budget?: JobBudget

@@ -10,6 +10,7 @@ interface AuthContextType {
   logout: () => Promise<void>
   updateUser: (user: User) => void
   refreshUser: () => Promise<void>
+  getIdToken: () => Promise<string>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -58,6 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(currentUser)
   }
 
+  const getIdToken = async () => {
+    return authService.getIdToken()
+  }
+
   const value = {
     user,
     loading,
@@ -66,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     updateUser,
     refreshUser,
+    getIdToken,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

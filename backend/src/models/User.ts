@@ -26,6 +26,7 @@ export interface EngineerProfile {
   avatar?: string
   bio?: string
   location?: string
+  preferredLocation?: string
   workStyle?: ('remote' | 'onsite' | 'hybrid')[]
   availableHours?: number
   hourlyRate?: {
@@ -83,6 +84,35 @@ export interface EngineerProfile {
     average: number
     count: number
     contractsCompleted: number
+  }
+  // 新規追加フィールド
+  awsExperienceYears?: {
+    service: string
+    years: number
+  }[]
+  desiredMonthlyRate?: {
+    min?: number
+    max?: number
+    currency: string
+  }
+  availableStartDate?: string
+  pastProjects?: Array<{
+    title: string
+    description: string
+    role: string
+    period: string
+    awsServices?: string[]
+  }>
+  platformRating?: {
+    average: number
+    count: number
+    reviews?: Array<{
+      companyId: string
+      companyName: string
+      rating: number
+      comment?: string
+      createdAt: string
+    }>
   }
 }
 

@@ -75,10 +75,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const now = new Date().toISOString()
 
     // デモ用: 実際の支払い処理をシミュレート
-    console.log(`[DEMO] Processing payment for contract ${contractId}`)
-    console.log(`[DEMO] Amount: ¥${contract.contractAmount.toLocaleString()}`)
-    console.log(`[DEMO] Fee: ¥${contract.feeAmount.toLocaleString()}`)
-    console.log(`[DEMO] Total: ¥${(contract.contractAmount + contract.feeAmount).toLocaleString()}`)
+    // 企業は手数料のみをプラットフォームに支払う
+    // 技術者への契約金額の支払いは企業と技術者が直接行う（システム外）
+    console.log(`[DEMO] Processing platform fee payment for contract ${contractId}`)
+    console.log(`[DEMO] Contract Amount: ¥${contract.contractAmount.toLocaleString()} (paid directly to engineer outside the system)`)
+    console.log(`[DEMO] Platform Fee (${contract.feePercentage}%): ¥${contract.feeAmount.toLocaleString()}`)
 
     // Update contract status to paid
     await docClient.send(
@@ -122,7 +123,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return successResponse({
       ...updatedContractResult.Item,
-      paymentMessage: 'デモ支払いが完了しました。本番環境では実際の決済処理が行われます。',
+      paymentMessage: 'プラットフォーム手数料の支払いが完了しました。技術者への契約金額のお支払いは直接行ってください。',
     })
   } catch (error) {
     console.error('Error processing payment:', error)

@@ -20,6 +20,13 @@ export interface Conversation {
   unreadCountEngineer: number
   unreadCountCompany: number
   createdAt: string
+  isJobDeleted?: boolean
+  jobTitle?: string
+  otherUser?: {
+    userId: string
+    displayName: string
+    avatar?: string
+  }
 }
 
 export interface SendMessageInput {

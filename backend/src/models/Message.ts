@@ -20,4 +20,5 @@ export interface Conversation {
   unreadCountEngineer: number
   unreadCountCompany: number
   createdAt: string
+  isJobDeleted?: boolean
 }

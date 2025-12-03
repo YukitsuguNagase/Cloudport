@@ -2,33 +2,33 @@ import { Link } from 'react-router-dom'
 
 function Footer() {
   return (
-    <footer className="bg-gray-900 text-white py-8 mt-auto">
+    <footer className="bg-gradient-to-b from-[#1A2942] to-[#0A1628] text-white py-12 mt-auto border-t border-[#00E5FF]/10">
       <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-3 gap-8 mb-8">
           {/* About */}
           <div>
-            <h3 className="text-lg font-bold mb-4">CloudPortについて</h3>
-            <p className="text-gray-400 text-sm">
-              AWS技術者と企業をつなぐマッチングプラットフォーム
+            <h3 className="font-mono font-bold text-lg mb-4 gradient-text-cyan">CloudPort</h3>
+            <p className="text-[#E8EEF7]/60 text-sm leading-relaxed">
+              AWS技術者と企業をつなぐ<br />次世代マッチングプラットフォーム
             </p>
           </div>
 
           {/* Links */}
           <div>
-            <h3 className="text-lg font-bold mb-4">リンク</h3>
+            <h3 className="font-semibold text-white mb-4">リンク</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link to="/terms" className="text-gray-400 hover:text-white transition">
+                <Link to="/terms" className="text-[#E8EEF7]/60 hover:text-[#00E5FF] transition-colors duration-300">
                   利用規約
                 </Link>
               </li>
               <li>
-                <Link to="/privacy" className="text-gray-400 hover:text-white transition">
+                <Link to="/privacy" className="text-[#E8EEF7]/60 hover:text-[#00E5FF] transition-colors duration-300">
                   プライバシーポリシー
                 </Link>
               </li>
               <li>
-                <Link to="/contact" className="text-gray-400 hover:text-white transition">
+                <Link to="/contact" className="text-[#E8EEF7]/60 hover:text-[#00E5FF] transition-colors duration-300">
                   お問い合わせ
                 </Link>
               </li>
@@ -37,16 +37,16 @@ function Footer() {
 
           {/* Contact */}
           <div>
-            <h3 className="text-lg font-bold mb-4">お問い合わせ</h3>
-            <p className="text-gray-400 text-sm">
-              <a href="mailto:yukinag@dotqinc.com" className="hover:text-white transition">
+            <h3 className="font-semibold text-white mb-4">お問い合わせ</h3>
+            <p className="text-[#E8EEF7]/60 text-sm">
+              <a href="mailto:yukinag@dotqinc.com" className="hover:text-[#00E5FF] transition-colors duration-300">
                 yukinag@dotqinc.com
               </a>
             </p>
           </div>
         </div>
 
-        <div className="border-t border-gray-800 pt-8 text-center text-gray-400 text-sm">
+        <div className="border-t border-[#00E5FF]/10 pt-8 text-center text-[#E8EEF7]/40 text-sm font-mono">
           <p>&copy; 2025 CloudPort. All rights reserved.</p>
         </div>
       </div>

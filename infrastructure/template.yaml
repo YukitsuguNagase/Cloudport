@@ -17,6 +17,8 @@ Globals:
         CONVERSATIONS_TABLE: !Ref ConversationsTable
         MESSAGES_TABLE: !Ref MessagesTable
         CONTRACTS_TABLE: !Ref ContractsTable
+        NOTIFICATIONS_TABLE: !Ref NotificationsTable
+        SCOUTS_TABLE: !Ref ScoutsTable
 
 Parameters:
   Environment:
@@ -242,6 +244,66 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+  NotificationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-notifications-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: notificationId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: notificationId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  ScoutsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-scouts-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: scoutId
+          AttributeType: S
+        - AttributeName: companyId
+          AttributeType: S
+        - AttributeName: engineerId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: scoutId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: CompanyIdIndex
+          KeySchema:
+            - AttributeName: companyId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: EngineerIdIndex
+          KeySchema:
+            - AttributeName: engineerId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
   # Lambda Functions - Jobs
   GetJobsFunction:
     Type: AWS::Serverless::Function
@@ -349,6 +411,8 @@ Resources:
             TableName: !Ref ApplicationsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationsTable
 
   GetApplicationsFunction:
     Type: AWS::Serverless::Function
@@ -519,6 +583,8 @@ Resources:
             TableName: !Ref ConversationsTable
         - DynamoDBReadPolicy:
             TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationsTable
 
   GetMessagesFunction:
     Type: AWS::Serverless::Function
@@ -628,6 +694,8 @@ Resources:
             TableName: !Ref UsersTable
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationsTable
 
   GetContractsFunction:
     Type: AWS::Serverless::Function
@@ -640,6 +708,28 @@ Resources:
           Properties:
             RestApiId: !Ref CloudPortApi
             Path: /contracts
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ContractsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+
+  GetContractDetailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/contracts/getContractDetail.handler
+      Events:
+        GetContractDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /contracts/{contractId}
             Method: get
             Auth:
               Authorizer: CognitoAuthorizer
@@ -671,6 +761,125 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref UsersTable
         - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+
+  GetNotificationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/notifications/getNotifications.handler
+      Events:
+        GetNotifications:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /notifications
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref NotificationsTable
+
+  MarkNotificationAsReadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/notifications/markAsRead.handler
+      Events:
+        MarkAsRead:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /notifications/{notificationId}/read
+            Method: put
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationsTable
+
+  # Lambda Functions - Scouts
+  SearchEngineersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/scouts/searchEngineers.handler
+      Events:
+        SearchEngineers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /scouts/search
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  SendScoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/scouts/sendScout.handler
+      Events:
+        SendScout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /scouts
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConversationsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MessagesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ScoutsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationsTable
+
+  GetScoutsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/scouts/getScouts.handler
+      Events:
+        GetScouts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /scouts
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ScoutsTable
+
+  GetMyJobsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/jobs/getMyJobs.handler
+      Events:
+        GetMyJobs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /jobs/my
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
             TableName: !Ref JobsTable
 
 Outputs:

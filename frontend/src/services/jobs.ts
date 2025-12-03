@@ -31,3 +31,8 @@ export const updateJob = async (
 export const deleteJob = async (jobId: string): Promise<void> => {
   await apiClient.delete(`/jobs/${jobId}`)
 }
+
+export const getMyJobs = async (): Promise<Job[]> => {
+  const response = await apiClient.get('/jobs/my')
+  return response.data
+}

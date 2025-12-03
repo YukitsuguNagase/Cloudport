@@ -57,27 +57,37 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Enrich contracts with job and other user info
     const enrichedContracts = await Promise.all(
       contracts.map(async (contract) => {
-        try {
-          const [jobResult, otherUserResult] = await Promise.all([
-            docClient.send(
-              new GetCommand({
-                TableName: JOBS_TABLE,
-                Key: { jobId: contract.jobId },
-              })
-            ),
-            docClient.send(
-              new GetCommand({
-                TableName: USERS_TABLE,
-                Key: {
-                  userId: userType === 'engineer' ? contract.companyId : contract.engineerId,
-                },
-              })
-            ),
-          ])
+        let jobTitle = '不明'
+        let otherUser = null
 
-          // 相手ユーザーの表示名を取得（技術者なら企業名、企業なら技術者名）
-          let displayName = '不明'
+        // Fetch job info
+        try {
+          const jobResult = await docClient.send(
+            new GetCommand({
+              TableName: JOBS_TABLE,
+              Key: { jobId: contract.jobId },
+            })
+          )
+          if (jobResult.Item?.title) {
+            jobTitle = jobResult.Item.title
+          }
+        } catch (error) {
+          console.error(`Error fetching job ${contract.jobId}:`, error)
+        }
+
+        // Fetch other user info
+        try {
+          const otherUserId = userType === 'engineer' ? contract.companyId : contract.engineerId
+          const otherUserResult = await docClient.send(
+            new GetCommand({
+              TableName: USERS_TABLE,
+              Key: { userId: otherUserId },
+            })
+          )
+
           if (otherUserResult.Item) {
+            // 相手ユーザーの表示名を取得（技術者なら企業名、企業なら技術者名）
+            let displayName = '不明'
             if (userType === 'engineer') {
               // 技術者から見た場合は企業名を表示
               displayName = otherUserResult.Item.profile?.companyName || otherUserResult.Item.email
@@ -85,25 +95,20 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
               // 企業から見た場合は技術者の表示名を表示
               displayName = otherUserResult.Item.profile?.displayName || otherUserResult.Item.email
             }
-          }
 
-          return {
-            ...contract,
-            jobTitle: jobResult.Item?.title || '不明',
-            otherUser: otherUserResult.Item
-              ? {
-                  userId: otherUserResult.Item.userId,
-                  displayName,
-                }
-              : null,
+            otherUser = {
+              userId: otherUserResult.Item.userId,
+              displayName,
+            }
           }
         } catch (error) {
-          console.error('Error enriching contract:', error)
-          return {
-            ...contract,
-            jobTitle: '不明',
-            otherUser: null,
-          }
+          console.error(`Error fetching user ${userType === 'engineer' ? contract.companyId : contract.engineerId}:`, error)
+        }
+
+        return {
+          ...contract,
+          jobTitle,
+          otherUser,
         }
       })
     )

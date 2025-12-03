@@ -7,11 +7,13 @@ function Privacy() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="mb-6">
-          <Link to={user ? "/jobs" : "/"} className="text-primary-600 hover:underline">
-            ← {user ? "案件一覧に戻る" : "トップページに戻る"}
-          </Link>
-        </div>
+        {user && (
+          <div className="mb-6">
+            <Link to="/jobs" className="text-primary-600 hover:underline">
+              ← 案件一覧に戻る
+            </Link>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg shadow-md p-8">
           <h1 className="text-3xl font-bold mb-6">プライバシーポリシー</h1>
@@ -34,11 +36,23 @@ function Privacy() {
 
             <section>
               <h2 className="text-xl font-bold mb-3">第2条（個人情報の収集方法）</h2>
-              <p>
-                当サービスは、ユーザーが利用登録をする際に、氏名、メールアドレスなどの個人情報をお尋ねすることがあります。
-                また、ユーザーと提携先などとの間でなされたユーザーの個人情報を含む取引記録や決済に関する情報を、
-                当サービスの提携先（情報提供元、広告主、広告配信先などを含みます。以下「提携先」といいます）などから収集することがあります。
-              </p>
+              <div className="space-y-2">
+                <p>
+                  当サービスは、ユーザーが利用登録をする際に以下の個人情報をお尋ねすることがあります：
+                </p>
+                <ul className="list-disc list-inside space-y-1 ml-4">
+                  <li>メールアドレス</li>
+                  <li>氏名または企業名</li>
+                  <li>プロフィール情報（技術者：AWS資格、スキル、経験など / 企業：事業内容、連絡先など）</li>
+                  <li>メッセージの内容</li>
+                  <li>契約情報（金額、期間など）</li>
+                  <li>決済情報</li>
+                </ul>
+                <p className="mt-3">
+                  また、ユーザーと提携先などとの間でなされたユーザーの個人情報を含む取引記録や決済に関する情報を、
+                  当サービスの提携先（決済サービス提供者などを含みます。以下「提携先」といいます）などから収集することがあります。
+                </p>
+              </div>
             </section>
 
             <section>

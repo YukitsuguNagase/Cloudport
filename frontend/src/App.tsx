@@ -1,10 +1,13 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { ToastProvider } from './contexts/ToastContext'
 import Layout from './components/layout/Layout'
 import Landing from './pages/Landing'
 import SignUp from './pages/SignUp'
 import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import JobList from './pages/Jobs/JobList'
 import JobDetail from './pages/Jobs/JobDetail'
 import JobForm from './pages/Jobs/JobForm'
@@ -19,6 +22,8 @@ import MyPage from './pages/Profile/MyPage'
 import ProfileEdit from './pages/Profile/ProfileEdit'
 import PaymentList from './pages/Payments/PaymentList'
 import EngineerProfileView from './pages/Users/EngineerProfileView'
+import NotificationList from './pages/Notifications/NotificationList'
+import EngineerSearch from './pages/Scouts/EngineerSearch'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 import Contact from './pages/Contact'
@@ -26,13 +31,16 @@ import Contact from './pages/Contact'
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <ToastProvider>
+        <Router>
         <Routes>
           {/* Public routes - no layout */}
           <Route path="/" element={<Landing />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/contact" element={<Contact />} />
@@ -57,9 +65,14 @@ function App() {
 
           <Route path="/users/:userId" element={<Layout><EngineerProfileView /></Layout>} />
 
+          <Route path="/notifications" element={<Layout><NotificationList /></Layout>} />
+
           <Route path="/payments" element={<Layout><PaymentList /></Layout>} />
+
+          <Route path="/scouts/search" element={<Layout><EngineerSearch /></Layout>} />
         </Routes>
-      </Router>
+        </Router>
+      </ToastProvider>
     </AuthProvider>
   )
 }
