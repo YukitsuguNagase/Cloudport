@@ -89,14 +89,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     if (userType === 'engineer') {
-      // 技術者が承認した時点で決済完了とする（手数料のみの支払いのため）
+      // 技術者が承認した場合は企業の決済待ち
       updateExpressions.push('approvedByEngineer = :now')
-      updateExpressions.push('#status = :paid')
-      updateExpressions.push('paidAt = :now')
-      expressionAttributeValues[':paid'] = 'paid'
+      updateExpressions.push('#status = :pending_payment')
+      expressionAttributeValues[':pending_payment'] = 'pending_payment'
 
-      console.log(`[DEMO] Contract ${contractId} approved by engineer - automatically marked as paid`)
-      console.log(`[DEMO] Platform fee (${contract.feePercentage}%): ¥${contract.feeAmount.toLocaleString()}`)
+      console.log(`Contract ${contractId} approved by engineer - waiting for company payment`)
+      console.log(`Platform fee (${contract.feePercentage}%): ¥${contract.feeAmount.toLocaleString()}`)
     } else {
       // 企業が承認した場合は技術者の承認待ち
       updateExpressions.push('approvedByCompany = :now')
@@ -118,24 +117,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       })
     )
 
-    // 技術者が承認した場合（決済完了）、案件ステータスを'closed'に更新
-    // 企業が承認した場合は、まだ技術者承認待ちなので案件ステータスは更新しない
-    if (userType === 'engineer') {
-      await docClient.send(
-        new UpdateCommand({
-          TableName: JOBS_TABLE,
-          Key: { jobId: contract.jobId },
-          UpdateExpression: 'SET #status = :closed, updatedAt = :now',
-          ExpressionAttributeNames: {
-            '#status': 'status',
-          },
-          ExpressionAttributeValues: {
-            ':closed': 'closed',
-            ':now': now,
-          },
-        })
-      )
-    }
+    // 案件ステータスは決済完了後(processPayment)に更新する
+    // 技術者承認時点では案件ステータスは更新しない
 
     // Get updated contract
     const updatedContractResult = await docClient.send(
@@ -147,15 +130,15 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Create notification for the other party
     const recipientId = userType === 'engineer' ? contract.companyId : contract.engineerId
-    const status = userType === 'engineer' ? 'paid' : 'pending_engineer'
+    const status = userType === 'engineer' ? 'pending_payment' : 'pending_engineer'
 
-    if (status === 'paid') {
-      // Engineer approved - payment completed
+    if (status === 'pending_payment') {
+      // Engineer approved - waiting for company payment
       await createNotification({
         userId: recipientId,
         type: 'contract_approved',
         title: 'オファーが承認されました',
-        message: 'オファー承認が完了し、契約が成立しました',
+        message: 'プラットフォーム手数料のお支払いをお願いします',
         link: `/contracts/${contractId}`,
         relatedId: contractId,
       })

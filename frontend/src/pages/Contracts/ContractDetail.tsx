@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Contract } from '../../types/contract'
-import { getContractDetail, approveContract } from '../../services/contracts'
+import { getContractDetail, approveContract, processPayment } from '../../services/contracts'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
+import PaymentModal from '../../components/payment/PaymentModal'
 
 function ContractDetail() {
   const { contractId } = useParams<{ contractId: string }>()
@@ -16,6 +17,8 @@ function ContractDetail() {
   const [error, setError] = useState('')
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
     if (contractId) {
@@ -54,6 +57,29 @@ function ContractDetail() {
     }
   }
 
+  const handlePayment = () => {
+    setShowPaymentModal(true)
+  }
+
+  const handlePaymentSuccess = async (token: string) => {
+    setProcessing(true)
+    try {
+      const updatedContract = await processPayment(contractId!, token)
+      setContract(updatedContract)
+      setShowPaymentModal(false)
+      showSuccess('決済が完了しました')
+    } catch (err: any) {
+      showError(err.message || '決済に失敗しました')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handlePaymentError = (error: string) => {
+    showError(error)
+    setProcessing(false)
+  }
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -61,6 +87,8 @@ function ContractDetail() {
         return <span className="px-3 py-1 rounded-full text-xs badge-primary">技術者承認待ち</span>
       case 'pending_company':
         return <span className="px-3 py-1 rounded-full text-xs badge-primary">企業承認待ち</span>
+      case 'pending_payment':
+        return <span className="px-3 py-1 rounded-full text-xs badge-warning">決済待ち</span>
       case 'paid':
         return <span className="px-3 py-1 rounded-full text-xs badge-cyan">支払い完了</span>
       default:
@@ -245,6 +273,46 @@ function ContractDetail() {
                 </button>
               )}
 
+              {contract.status === 'pending_payment' && user?.userType === 'company' && (
+                <div className="space-y-4">
+                  <div className="bg-[#FF6B35]/10 border border-[#FF6B35]/30 p-4 rounded-lg">
+                    <p className="text-[#FF6B35] font-semibold flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      プラットフォーム手数料のお支払い
+                    </p>
+                    <p className="text-[#E8EEF7] text-sm mt-2">
+                      技術者が契約を承認しました。プラットフォーム手数料をお支払いいただくと契約が成立します。
+                    </p>
+                    <p className="text-[#E8EEF7]/80 text-xs mt-2">
+                      ※技術者への契約金額は直接お支払いください
+                    </p>
+                  </div>
+                  <button
+                    onClick={handlePayment}
+                    disabled={processing}
+                    className="w-full bg-gradient-to-r from-[#FF6B35] to-[#FF8C5A] text-white py-3 px-4 rounded-lg hover:shadow-lg hover:shadow-[#FF6B35]/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                  >
+                    {processing ? '処理中...' : `プラットフォーム手数料を支払う (¥${contract.feeAmount.toLocaleString()})`}
+                  </button>
+                </div>
+              )}
+
+              {contract.status === 'pending_payment' && user?.userType === 'engineer' && (
+                <div className="bg-[#00E5FF]/10 border border-[#00E5FF]/30 p-4 rounded-lg">
+                  <p className="text-[#00E5FF] font-semibold flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    企業の決済待ち
+                  </p>
+                  <p className="text-[#E8EEF7] text-sm mt-2">
+                    企業がプラットフォーム手数料を支払うと契約が成立します。
+                  </p>
+                </div>
+              )}
+
               {contract.status === 'paid' && (
                 <div className="bg-[#00E5FF]/10 border border-[#00E5FF]/30 p-4 rounded-lg">
                   <p className="text-[#00E5FF] font-semibold flex items-center gap-2">
@@ -256,6 +324,11 @@ function ContractDetail() {
                   <p className="text-[#E8EEF7] text-sm mt-2">
                     この契約は成立しています。お疲れさまでした。
                   </p>
+                  {contract.paymentMethod && (
+                    <p className="text-[#E8EEF7]/60 text-xs mt-2">
+                      決済方法: {contract.paymentMethod}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -273,6 +346,18 @@ function ContractDetail() {
         onCancel={() => setShowApproveConfirm(false)}
         isOpen={showApproveConfirm}
       />
+
+      {/* 決済モーダル */}
+      {contract && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          amount={contract.feeAmount}
+          contractId={contractId!}
+          onClose={() => !processing && setShowPaymentModal(false)}
+          onSuccess={handlePaymentSuccess}
+          onError={handlePaymentError}
+        />
+      )}
     </div>
   )
 }

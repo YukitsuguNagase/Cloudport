@@ -585,6 +585,14 @@ Resources:
             TableName: !Ref UsersTable
         - DynamoDBCrudPolicy:
             TableName: !Ref NotificationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ContractsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource:
+                - !Sub '${ContractsTable.Arn}/index/*'
 
   GetMessagesFunction:
     Type: AWS::Serverless::Function
@@ -746,6 +754,9 @@ Resources:
     Properties:
       CodeUri: ../backend/
       Handler: dist/handlers/contracts/processPayment.handler
+      Environment:
+        Variables:
+          PAYJP_SECRET_KEY: sk_test_c07bd8dfb391cb8bdc497b46
       Events:
         ProcessPayment:
           Type: Api

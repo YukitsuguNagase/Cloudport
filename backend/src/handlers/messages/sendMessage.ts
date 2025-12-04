@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb'
 import { successResponse, errorResponse } from '../../utils/response.js'
 import { v4 as uuidv4 } from 'uuid'
 import { createNotification } from '../../utils/notifications.js'
@@ -11,6 +11,7 @@ const docClient = DynamoDBDocumentClient.from(client)
 const MESSAGES_TABLE = process.env.MESSAGES_TABLE!
 const CONVERSATIONS_TABLE = process.env.CONVERSATIONS_TABLE!
 const USERS_TABLE = process.env.USERS_TABLE!
+const CONTRACTS_TABLE = process.env.CONTRACTS_TABLE!
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
@@ -63,6 +64,32 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const senderType = userResult.Item.userType
+
+    // Check if there's a pending payment contract blocking messages
+    // Only block if company is trying to send to engineer
+    if (senderType === 'company' && conversation.jobId) {
+      const contractsResult = await docClient.send(
+        new QueryCommand({
+          TableName: CONTRACTS_TABLE,
+          IndexName: 'CompanyIdIndex',
+          KeyConditionExpression: 'companyId = :companyId',
+          FilterExpression: 'jobId = :jobId AND engineerId = :engineerId AND #status = :pendingPayment',
+          ExpressionAttributeNames: {
+            '#status': 'status'
+          },
+          ExpressionAttributeValues: {
+            ':companyId': conversation.companyId,
+            ':jobId': conversation.jobId,
+            ':engineerId': conversation.engineerId,
+            ':pendingPayment': 'pending_payment'
+          }
+        })
+      )
+
+      if (contractsResult.Items && contractsResult.Items.length > 0) {
+        return errorResponse('プラットフォーム手数料の決済が完了するまで、メッセージを送信できません', 403)
+      }
+    }
 
     // Create message
     const messageId = uuidv4()

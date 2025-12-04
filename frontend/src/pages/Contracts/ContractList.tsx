@@ -72,6 +72,8 @@ function ContractList() {
         return <span className="px-3 py-1 rounded-full text-xs badge-primary">技術者承認待ち</span>
       case 'pending_company':
         return <span className="px-3 py-1 rounded-full text-xs badge-primary">企業承認待ち</span>
+      case 'pending_payment':
+        return <span className="px-3 py-1 rounded-full text-xs badge-warning">決済待ち</span>
       case 'paid':
         return <span className="px-3 py-1 rounded-full text-xs badge-cyan">支払い完了</span>
       default:
@@ -178,18 +180,55 @@ function ContractList() {
                 )}
               </div>
 
-              {needsMyApproval(contract) && (
-                <button
-                  onClick={() => handleApprove(contract.contractId)}
-                  disabled={approvingId === contract.contractId}
-                  className="w-full bg-gradient-to-r from-[#00E5FF] to-[#5B8DEF] text-white py-3 px-4 rounded-lg hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+              <div className="flex gap-3">
+                {/* 詳細を見るボタン - 常に表示 */}
+                <Link
+                  to={`/contracts/${contract.contractId}`}
+                  className="flex-1 bg-transparent border border-[#00E5FF]/30 text-[#00E5FF] py-3 px-4 rounded-lg hover:bg-[#00E5FF]/10 hover:border-[#00E5FF] transition-all duration-300 font-semibold text-center"
                 >
-                  {approvingId === contract.contractId ? '承認中...' : '契約を承認する'}
-                </button>
+                  詳細を見る
+                </Link>
+
+                {/* 承認ボタン - 承認待ちの場合のみ表示 */}
+                {needsMyApproval(contract) && (
+                  <button
+                    onClick={() => handleApprove(contract.contractId)}
+                    disabled={approvingId === contract.contractId}
+                    className="flex-1 bg-gradient-to-r from-[#00E5FF] to-[#5B8DEF] text-white py-3 px-4 rounded-lg hover:shadow-lg hover:shadow-[#00E5FF]/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                  >
+                    {approvingId === contract.contractId ? '承認中...' : '契約を承認する'}
+                  </button>
+                )}
+              </div>
+
+              {/* pending_payment状態の場合の通知 */}
+              {contract.status === 'pending_payment' && user?.userType === 'company' && (
+                <div className="bg-[#FF6B35]/10 border border-[#FF6B35]/30 p-4 rounded-lg mt-3">
+                  <p className="text-[#FF6B35] text-sm font-semibold flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    プラットフォーム手数料のお支払いが必要です
+                  </p>
+                  <p className="text-[#E8EEF7]/60 text-xs mt-1">
+                    詳細ページから決済を完了してください
+                  </p>
+                </div>
+              )}
+
+              {contract.status === 'pending_payment' && user?.userType === 'engineer' && (
+                <div className="bg-[#00E5FF]/10 border border-[#00E5FF]/30 p-4 rounded-lg mt-3">
+                  <p className="text-[#00E5FF] text-sm font-semibold flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    企業の決済待ち
+                  </p>
+                </div>
               )}
 
               {contract.status === 'paid' && (
-                <div className="bg-[#00E5FF]/10 border border-[#00E5FF]/30 p-4 rounded-lg">
+                <div className="bg-[#00E5FF]/10 border border-[#00E5FF]/30 p-4 rounded-lg mt-3">
                   <p className="text-[#00E5FF] text-sm font-semibold flex items-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />

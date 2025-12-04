@@ -12,6 +12,7 @@ export type NotificationType =
   | 'new_message'          // 新規メッセージ
   | 'contract_request'     // 契約申請
   | 'contract_approved'    // 契約承認
+  | 'payment_completed'    // 決済完了
   | 'scout_received'       // スカウト受信
 
 export interface CreateNotificationParams {

@@ -76,6 +76,14 @@ function ChatRoom() {
       if (conversation.applicationId) {
         const contract = contracts.find(c => c.applicationId === conversation.applicationId)
         setExistingContract(contract || null)
+      } else if (conversation.jobId) {
+        // Check for contracts related to this job with the same participants
+        const contract = contracts.find(c =>
+          c.jobId === conversation.jobId &&
+          c.engineerId === conversation.engineerId &&
+          c.companyId === conversation.companyId
+        )
+        setExistingContract(contract || null)
       }
     } catch (err) {
       console.error('Failed to check existing contract:', err)
@@ -360,6 +368,28 @@ function ChatRoom() {
             {conversation?.isJobDeleted ? (
               <div className="text-center py-4 text-[#E8EEF7]/60">
                 <p className="text-sm">案件が削除されたため、メッセージの送信はできません。</p>
+              </div>
+            ) : existingContract?.status === 'pending_payment' && user?.userType === 'company' ? (
+              <div className="text-center py-4">
+                <div className="bg-[#FF6B35]/10 border border-[#FF6B35]/30 p-4 rounded-lg inline-block">
+                  <div className="flex items-center gap-3 text-[#FF6B35]">
+                    <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <div className="text-left">
+                      <p className="font-semibold mb-1">メッセージ送信が一時停止中</p>
+                      <p className="text-sm text-[#E8EEF7]/80">
+                        プラットフォーム手数料の決済が完了するまで、メッセージを送信できません。
+                      </p>
+                      <Link
+                        to="/contracts"
+                        className="text-sm text-[#00E5FF] hover:text-[#5B8DEF] hover:underline transition-colors duration-300 mt-2 inline-block"
+                      >
+                        契約一覧で決済を完了する →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSendMessage} className="flex gap-2">
