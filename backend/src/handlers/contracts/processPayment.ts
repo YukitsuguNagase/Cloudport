@@ -1,20 +1,174 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, GetCommand, UpdateCommand, PutCommand } from '@aws-sdk/lib-dynamodb'
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager'
 import { successResponse, errorResponse } from '../../utils/response.js'
 import { createNotification } from '../../utils/notifications.js'
 import Payjp from 'payjp'
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
+const secretsClient = new SecretsManagerClient({})
 
 const CONTRACTS_TABLE = process.env.CONTRACTS_TABLE!
 const USERS_TABLE = process.env.USERS_TABLE!
 const JOBS_TABLE = process.env.JOBS_TABLE!
-const PAYJP_SECRET_KEY = process.env.PAYJP_SECRET_KEY!
+const PAYJP_SECRET_NAME = process.env.PAYJP_SECRET_NAME!
+const PAYMENT_ATTEMPTS_TABLE = process.env.PAYMENT_ATTEMPTS_TABLE!
 
-// Initialize PAY.JP
-const payjp = Payjp(PAYJP_SECRET_KEY)
+const MAX_PAYMENT_ATTEMPTS = 5
+const LOCKOUT_DURATION = 30 * 60 // 30 minutes in seconds
+
+let cachedPayjpKey: string | null = null
+
+// Get PAY.JP secret key from Secrets Manager
+async function getPayjpSecretKey(): Promise<string> {
+  if (cachedPayjpKey) {
+    return cachedPayjpKey
+  }
+
+  const response = await secretsClient.send(
+    new GetSecretValueCommand({
+      SecretId: PAYJP_SECRET_NAME,
+    })
+  )
+
+  const secret = JSON.parse(response.SecretString!)
+  const key: string = secret.secret_key
+  cachedPayjpKey = key
+  return key
+}
+
+// Check if user has too many failed payment attempts
+async function checkPaymentAttempts(userId: string): Promise<{ allowed: boolean; remainingMinutes?: number }> {
+  const now = Math.floor(Date.now() / 1000)
+
+  try {
+    const result = await docClient.send(
+      new GetCommand({
+        TableName: PAYMENT_ATTEMPTS_TABLE,
+        Key: { userId },
+      })
+    )
+
+    if (!result.Item) {
+      return { allowed: true }
+    }
+
+    const { failedAttempts, lockedUntil } = result.Item
+
+    // Check if currently locked
+    if (lockedUntil && lockedUntil > now) {
+      const remainingSeconds = lockedUntil - now
+      const remainingMinutes = Math.ceil(remainingSeconds / 60)
+      return { allowed: false, remainingMinutes }
+    }
+
+    // Check if too many attempts
+    if (failedAttempts >= MAX_PAYMENT_ATTEMPTS) {
+      // Lock the account
+      await docClient.send(
+        new UpdateCommand({
+          TableName: PAYMENT_ATTEMPTS_TABLE,
+          Key: { userId },
+          UpdateExpression: 'SET lockedUntil = :lockedUntil, #ttl = :ttl',
+          ExpressionAttributeNames: {
+            '#ttl': 'ttl',
+          },
+          ExpressionAttributeValues: {
+            ':lockedUntil': now + LOCKOUT_DURATION,
+            ':ttl': now + LOCKOUT_DURATION + 86400, // TTL: 24 hours after unlock
+          },
+        })
+      )
+      const remainingMinutes = Math.ceil(LOCKOUT_DURATION / 60)
+      return { allowed: false, remainingMinutes }
+    }
+
+    return { allowed: true }
+  } catch (error) {
+    console.error('Error checking payment attempts:', error)
+    // Don't block on error
+    return { allowed: true }
+  }
+}
+
+// Record failed payment attempt
+async function recordFailedPayment(userId: string, errorMessage: string, contractId: string): Promise<void> {
+  const now = Math.floor(Date.now() / 1000)
+
+  try {
+    const result = await docClient.send(
+      new GetCommand({
+        TableName: PAYMENT_ATTEMPTS_TABLE,
+        Key: { userId },
+      })
+    )
+
+    if (result.Item) {
+      // Increment existing attempts
+      await docClient.send(
+        new UpdateCommand({
+          TableName: PAYMENT_ATTEMPTS_TABLE,
+          Key: { userId },
+          UpdateExpression:
+            'SET failedAttempts = failedAttempts + :inc, lastFailedAt = :now, lastErrorMessage = :error, lastContractId = :contractId, #ttl = :ttl',
+          ExpressionAttributeNames: {
+            '#ttl': 'ttl',
+          },
+          ExpressionAttributeValues: {
+            ':inc': 1,
+            ':now': now,
+            ':error': errorMessage,
+            ':contractId': contractId,
+            ':ttl': now + 86400, // TTL: 24 hours
+          },
+        })
+      )
+    } else {
+      // Create new record
+      await docClient.send(
+        new PutCommand({
+          TableName: PAYMENT_ATTEMPTS_TABLE,
+          Item: {
+            userId,
+            failedAttempts: 1,
+            lastFailedAt: now,
+            lastErrorMessage: errorMessage,
+            lastContractId: contractId,
+            ttl: now + 86400, // TTL: 24 hours
+          },
+        })
+      )
+    }
+
+    console.log(`Failed payment attempt recorded for user ${userId}`)
+  } catch (error) {
+    console.error('Error recording failed payment:', error)
+    // Don't throw - recording failure shouldn't block the response
+  }
+}
+
+// Clear payment attempts on successful payment
+async function clearPaymentAttempts(userId: string): Promise<void> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: PAYMENT_ATTEMPTS_TABLE,
+        Key: { userId },
+        UpdateExpression: 'SET failedAttempts = :zero, lockedUntil = :null',
+        ExpressionAttributeValues: {
+          ':zero': 0,
+          ':null': null,
+        },
+      })
+    )
+    console.log(`Payment attempts cleared for user ${userId}`)
+  } catch (error) {
+    console.error('Error clearing payment attempts:', error)
+    // Don't throw
+  }
+}
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
@@ -33,6 +187,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     if (!payjpToken) {
       return errorResponse('Missing payment token', 400)
+    }
+
+    // Check if user has too many failed payment attempts
+    const attemptCheck = await checkPaymentAttempts(userId)
+    if (!attemptCheck.allowed) {
+      console.log(`Payment blocked for user ${userId} due to too many failed attempts`)
+      return errorResponse(
+        `決済試行回数の上限に達しました。${attemptCheck.remainingMinutes}分後に再度お試しください。`,
+        429
+      )
     }
 
     // Get contract
@@ -85,6 +249,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const now = new Date().toISOString()
 
+    // Get PAY.JP secret key from Secrets Manager
+    const payjpSecretKey = await getPayjpSecretKey()
+    const payjp = Payjp(payjpSecretKey)
+
     // Process payment with PAY.JP
     let charge
     try {
@@ -108,11 +276,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       console.log(`PAY.JP charge created: ${charge.id}`)
     } catch (payjpError: any) {
       console.error('PAY.JP payment error:', payjpError)
-      return errorResponse(
-        payjpError.message || 'Payment processing failed',
-        402
-      )
+
+      // Record failed payment attempt
+      const errorMessage = payjpError.message || 'Payment processing failed'
+      await recordFailedPayment(userId, errorMessage, contractId)
+
+      return errorResponse(errorMessage, 402)
     }
+
+    // Clear failed payment attempts on successful payment
+    await clearPaymentAttempts(userId)
 
     // Update contract status to paid
     await docClient.send(

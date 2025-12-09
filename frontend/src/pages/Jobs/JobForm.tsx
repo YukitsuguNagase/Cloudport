@@ -116,9 +116,9 @@ function JobForm() {
         budget:
           budgetMin || budgetMax
             ? {
-                min: budgetMin ? Number(budgetMin) : undefined,
-                max: budgetMax ? Number(budgetMax) : undefined,
-              }
+              min: budgetMin ? Number(budgetMin) : undefined,
+              max: budgetMax ? Number(budgetMax) : undefined,
+            }
             : undefined,
       }
 

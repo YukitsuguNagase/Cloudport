@@ -1,8 +1,17 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useRef } from 'react'
+import { useAuth } from '../contexts/AuthContext'
 
 function Landing() {
   const heroRef = useRef<HTMLDivElement>(null)
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (user) {
+      navigate('/jobs', { replace: true })
+    }
+  }, [user, navigate])
 
   useEffect(() => {
     // Create floating cloud elements
@@ -43,6 +52,12 @@ function Landing() {
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-[#00E5FF] to-[#FF6B35] group-hover:w-full transition-all duration-300"></span>
             </Link>
             <div className="flex items-center gap-3 sm:gap-4">
+              <Link
+                to="/jobs"
+                className="text-sm sm:text-base text-[#E8EEF7] hover:text-[#00E5FF] transition-colors duration-300 font-medium"
+              >
+                案件一覧
+              </Link>
               <Link
                 to="/login"
                 className="text-sm sm:text-base text-[#E8EEF7] hover:text-[#00E5FF] transition-colors duration-300 font-medium"
@@ -111,7 +126,7 @@ function Landing() {
           </div>
 
           {/* Stats */}
-          <div className="mt-16 sm:mt-24 grid grid-cols-3 gap-4 sm:gap-8 max-w-3xl mx-auto animate-slide-up delay-400">
+          {/* <div className="mt-16 sm:mt-24 grid grid-cols-3 gap-4 sm:gap-8 max-w-3xl mx-auto animate-slide-up delay-400">
             <div className="text-center">
               <div className="text-3xl sm:text-5xl font-bold font-mono gradient-text-cyan mb-2">500+</div>
               <div className="text-xs sm:text-sm text-[#E8EEF7]/60 font-medium">登録技術者</div>
@@ -124,7 +139,7 @@ function Landing() {
               <div className="text-3xl sm:text-5xl font-bold font-mono gradient-text-cyan mb-2">98%</div>
               <div className="text-xs sm:text-sm text-[#E8EEF7]/60 font-medium">マッチング成功率</div>
             </div>
-          </div>
+          </div> */}
         </div>
       </section>
 
@@ -275,6 +290,7 @@ function Landing() {
               <ul className="space-y-2 text-sm">
                 <li><Link to="/terms" className="text-[#E8EEF7]/60 hover:text-[#00E5FF] transition-colors">利用規約</Link></li>
                 <li><Link to="/privacy" className="text-[#E8EEF7]/60 hover:text-[#00E5FF] transition-colors">プライバシーポリシー</Link></li>
+                <li><Link to="/legal" className="text-[#E8EEF7]/60 hover:text-[#00E5FF] transition-colors">特定商取引法に基づく表記</Link></li>
               </ul>
             </div>
             <div>

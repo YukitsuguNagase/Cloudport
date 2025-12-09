@@ -14,6 +14,7 @@ export type NotificationType =
   | 'contract_approved'    // 契約承認
   | 'payment_completed'    // 決済完了
   | 'scout_received'       // スカウト受信
+  | 'refund_processed'     // 返金処理
 
 export interface CreateNotificationParams {
   userId: string

@@ -22,6 +22,7 @@ export interface Conversation {
   createdAt: string
   isJobDeleted?: boolean
   jobTitle?: string
+  jobStatus?: 'open' | 'closed' | 'filled'
   otherUser?: {
     userId: string
     displayName: string

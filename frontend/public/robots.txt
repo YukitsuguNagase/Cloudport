@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /profile
+Disallow: /messages
+Disallow: /contracts
+Disallow: /admin
+Sitemap: https://cloudportjob.com/sitemap.xml

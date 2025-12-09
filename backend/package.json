@@ -10,7 +10,9 @@
     "lint": "eslint . --ext .ts"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudwatch-logs": "^3.947.0",
     "@aws-sdk/client-dynamodb": "^3.470.0",
+    "@aws-sdk/client-secrets-manager": "^3.470.0",
     "@aws-sdk/client-ses": "^3.470.0",
     "@aws-sdk/lib-dynamodb": "^3.470.0",
     "payjp": "^2.3.0",

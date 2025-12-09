@@ -1,4 +1,4 @@
-export type ContractStatus = 'pending_engineer' | 'pending_company' | 'pending_payment' | 'paid'
+export type ContractStatus = 'pending_engineer' | 'pending_company' | 'pending_payment' | 'paid' | 'refunded'
 export type ContractInitiator = 'engineer' | 'company'
 
 export interface Contract {
@@ -17,6 +17,9 @@ export interface Contract {
   paymentId?: string  // PAY.JP charge ID
   paymentMethod?: string  // 支払い方法（カードブランド等）
   paidAt?: string
+  refundedAt?: string
+  refundId?: string
+  refundReason?: string
   createdAt: string
   updatedAt: string
 }

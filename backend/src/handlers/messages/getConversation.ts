@@ -73,6 +73,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const enrichedConversation = {
       ...conversation,
       jobTitle: jobResult.Item?.title,
+      jobStatus: jobResult.Item?.status,
       isJobDeleted: conversation.isJobDeleted || !jobResult.Item,
       otherUser: otherUserResult.Item
         ? {

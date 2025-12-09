@@ -76,32 +76,37 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Mark all related conversations as job deleted
-    const conversationsResult = await docClient.send(
-      new QueryCommand({
-        TableName: CONVERSATIONS_TABLE,
-        IndexName: 'JobIdIndex',
-        KeyConditionExpression: 'jobId = :jobId',
-        ExpressionAttributeValues: {
-          ':jobId': jobId,
-        },
-      })
-    )
+    // Note: ConversationsTable doesn't have JobIdIndex yet
+    // TODO: Add JobIdIndex to ConversationsTable or handle this differently
+    // For now, skip conversation updates to allow job deletion to work
+    const conversations: any[] = []
 
-    const conversations = conversationsResult.Items || []
-
-    // Update all conversations to mark job as deleted
-    for (const conversation of conversations) {
-      await docClient.send(
-        new UpdateCommand({
-          TableName: CONVERSATIONS_TABLE,
-          Key: { conversationId: conversation.conversationId },
-          UpdateExpression: 'SET isJobDeleted = :isJobDeleted',
-          ExpressionAttributeValues: {
-            ':isJobDeleted': true,
-          },
-        })
-      )
-    }
+    // const conversationsResult = await docClient.send(
+    //   new QueryCommand({
+    //     TableName: CONVERSATIONS_TABLE,
+    //     IndexName: 'JobIdIndex',
+    //     KeyConditionExpression: 'jobId = :jobId',
+    //     ExpressionAttributeValues: {
+    //       ':jobId': jobId,
+    //     },
+    //   })
+    // )
+    //
+    // const conversations = conversationsResult.Items || []
+    //
+    // // Update all conversations to mark job as deleted
+    // for (const conversation of conversations) {
+    //   await docClient.send(
+    //     new UpdateCommand({
+    //       TableName: CONVERSATIONS_TABLE,
+    //       Key: { conversationId: conversation.conversationId },
+    //       UpdateExpression: 'SET isJobDeleted = :isJobDeleted',
+    //       ExpressionAttributeValues: {
+    //         ':isJobDeleted': true,
+    //       },
+    //     })
+    //   )
+    // }
 
     // Delete the job
     await docClient.send(

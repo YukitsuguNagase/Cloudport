@@ -6,6 +6,8 @@ import { EngineerProfile, CompanyProfile } from '../../types/user'
 import { AWS_CERTIFICATIONS } from '../../constants/awsCertifications'
 import { validateProfileForm, sanitizeInput } from '../../utils/validation'
 import { useToast } from '../../contexts/ToastContext'
+import { PREFECTURES } from '../../constants/prefectures'
+import LoadingSpinner from '../../components/common/LoadingSpinner'
 
 function ProfileEdit() {
   const navigate = useNavigate()
@@ -170,7 +172,7 @@ function ProfileEdit() {
   }
 
   if (!user) {
-    return <div>Loading...</div>
+    return <LoadingSpinner fullScreen />
   }
 
   return (
@@ -236,7 +238,7 @@ function ProfileEdit() {
                     }
                     rows={4}
                     className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300 resize-none"
-                    placeholder="あなたの経験やスキルについて教えてください"
+                    placeholder="例: バックエンドエンジニアとして5年の経験があります。主にGoとPythonを使用したAPI開発が得意です。直近のプロジェクトでは、AWS（ECS, Lambda, DynamoDB）を活用したマイクロサービスアーキテクチャの設計・構築を担当しました。チームリーダーとしての経験もあり、コードレビューやメンタリングも積極的に行っています。"
                   />
                 </div>
 
@@ -244,15 +246,20 @@ function ProfileEdit() {
                   <label className="block text-sm font-medium text-white mb-2">
                     所在地
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={engineerProfile.location || ''}
                     onChange={(e) =>
                       setEngineerProfile({ ...engineerProfile, location: e.target.value })
                     }
                     className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
-                    placeholder="例: 東京都"
-                  />
+                  >
+                    <option value="">選択してください</option>
+                    {PREFECTURES.map((prefecture) => (
+                      <option key={prefecture} value={prefecture}>
+                        {prefecture}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -285,6 +292,7 @@ function ProfileEdit() {
                     }
                     className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
                     placeholder="例: 160"
+                    min="0"
                   />
                 </div>
 
@@ -308,6 +316,7 @@ function ProfileEdit() {
                       }
                       className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
                       placeholder="最低時給"
+                      min="0"
                     />
                     <span className="text-[#E8EEF7]/60">〜</span>
                     <input
@@ -325,6 +334,7 @@ function ProfileEdit() {
                       }
                       className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
                       placeholder="最高時給"
+                      min="0"
                     />
                   </div>
                 </div>
@@ -349,6 +359,7 @@ function ProfileEdit() {
                       }
                       className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
                       placeholder="最低希望単価"
+                      min="0"
                     />
                     <span className="text-[#E8EEF7]/60">〜</span>
                     <input
@@ -366,6 +377,7 @@ function ProfileEdit() {
                       }
                       className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
                       placeholder="最高希望単価"
+                      min="0"
                     />
                   </div>
                 </div>
@@ -380,7 +392,7 @@ function ProfileEdit() {
                     onChange={(e) =>
                       setEngineerProfile({ ...engineerProfile, availableStartDate: e.target.value })
                     }
-                    className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
+                    className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert cursor-pointer"
                   />
                 </div>
 

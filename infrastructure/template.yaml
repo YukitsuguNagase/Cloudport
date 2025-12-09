@@ -19,6 +19,10 @@ Globals:
         CONTRACTS_TABLE: !Ref ContractsTable
         NOTIFICATIONS_TABLE: !Ref NotificationsTable
         SCOUTS_TABLE: !Ref ScoutsTable
+        LOGIN_ATTEMPTS_TABLE: !Ref LoginAttemptsTable
+        LOGIN_DEVICES_TABLE: !Ref LoginDevicesTable
+        PAYMENT_ATTEMPTS_TABLE: !Ref PaymentAttemptsTable
+        SENDER_EMAIL: noreply@dotqinc.com
 
 Parameters:
   Environment:
@@ -29,7 +33,42 @@ Parameters:
       - prod
     Description: Environment name
 
+  PayjpSecretKeyParam:
+    Type: String
+    NoEcho: true
+    Default: sk_test_c07bd8dfb391cb8bdc497b46
+    Description: PAY.JP Secret Key (test or production)
+
+  AdminAllowedIPs:
+    Type: CommaDelimitedList
+    Default: "138.64.83.96/32"
+    Description: Comma-separated list of IP addresses allowed to access admin endpoints (CIDR notation)
+
 Resources:
+  # IAM Role for Cognito to send SMS via SNS
+  CognitoSNSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cognito-idp.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Sub cloudport-${Environment}-external
+      Policies:
+        - PolicyName: CognitoSNSPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: '*'
+
   # API Gateway
   CloudPortApi:
     Type: AWS::Serverless::Api
@@ -44,6 +83,28 @@ Resources:
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !GetAtt UserPool.Arn
+        ResourcePolicy:
+          CustomStatements:
+            - Effect: Deny
+              Principal: '*'
+              Action: execute-api:Invoke
+              Resource:
+                - execute-api:/*/POST/admin/*
+                - execute-api:/*/GET/admin/*
+                - execute-api:/*/PUT/admin/*
+                - execute-api:/*/DELETE/admin/*
+              Condition:
+                NotIpAddress:
+                  aws:SourceIp: !Ref AdminAllowedIPs
+            - Effect: Allow
+              Principal: '*'
+              Action: execute-api:Invoke
+              Resource: execute-api:/*/*/*
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          ThrottlingBurstLimit: 100
+          ThrottlingRateLimit: 50
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
@@ -79,6 +140,17 @@ Resources:
         - Name: userType
           AttributeDataType: String
           Mutable: true
+        - Name: phone_number
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+      MfaConfiguration: OPTIONAL
+      EnabledMfas:
+        - SOFTWARE_TOKEN_MFA
+        - SMS_MFA
+      SmsConfiguration:
+        SnsCallerArn: !GetAtt CognitoSNSRole.Arn
+        ExternalId: !Sub cloudport-${Environment}-external
       Policies:
         PasswordPolicy:
           MinimumLength: 8
@@ -86,6 +158,17 @@ Resources:
           RequireLowercase: true
           RequireNumbers: true
           RequireSymbols: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      DeviceConfiguration:
+        ChallengeRequiredOnNewDevice: true
+        DeviceOnlyRememberedOnUserPrompt: false
+      LambdaConfig:
+        PreAuthentication: !GetAtt PreAuthenticationFunction.Arn
+        PostAuthentication: !GetAtt PostAuthenticationFunction.Arn
+        DefineAuthChallenge: !GetAtt DefineAuthChallengeFunction.Arn
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -304,6 +387,52 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+  LoginAttemptsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-login-attempts-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: email
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  LoginDevicesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-login-devices-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: deviceId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: deviceId
+          KeyType: RANGE
+
+  PaymentAttemptsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-payment-attempts-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
   # Lambda Functions - Jobs
   GetJobsFunction:
     Type: AWS::Serverless::Function
@@ -390,6 +519,10 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ApplicationsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConversationsTable
 
   # Lambda Functions - Applications
   ApplyJobFunction:
@@ -656,6 +789,24 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref JobsTable
 
+  DeleteConversationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/messages/deleteConversation.handler
+      Events:
+        DeleteConversation:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /conversations/{conversationId}
+            Method: delete
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConversationsTable
+
   # Contract Functions
   CreateContractFunction:
     Type: AWS::Serverless::Function
@@ -756,7 +907,7 @@ Resources:
       Handler: dist/handlers/contracts/processPayment.handler
       Environment:
         Variables:
-          PAYJP_SECRET_KEY: sk_test_c07bd8dfb391cb8bdc497b46
+          PAYJP_SECRET_NAME: !Sub cloudport-payjp-secret-${Environment}
       Events:
         ProcessPayment:
           Type: Api
@@ -773,6 +924,119 @@ Resources:
             TableName: !Ref UsersTable
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:cloudport-payjp-secret-${Environment}-*
+
+  # Admin Functions
+  GetAllContractsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/admin/getAllContracts.handler
+      Events:
+        GetAllContracts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /admin/contracts
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ContractsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+
+  ProcessRefundFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/admin/processRefund.handler
+      Environment:
+        Variables:
+          PAYJP_SECRET_NAME: !Sub cloudport-payjp-secret-${Environment}
+      Events:
+        ProcessRefund:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /admin/contracts/{contractId}/refund
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContractsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:cloudport-payjp-secret-${Environment}-*
+
+  GetAllUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/admin/getAllUsers.handler
+      Events:
+        GetAllUsers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /admin/users
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  GetSystemLogsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/admin/getSystemLogs.handler
+      Events:
+        GetSystemLogs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /admin/logs/system
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:FilterLogEvents
+                - logs:DescribeLogGroups
+                - logs:DescribeLogStreams
+              Resource: '*'
+
+  GetAccessLogsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/admin/getAccessLogs.handler
+      Events:
+        GetAccessLogs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /admin/logs/access
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
 
   GetNotificationsFunction:
     Type: AWS::Serverless::Function
@@ -892,6 +1156,128 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref JobsTable
+
+  # Cognito Lambda Triggers
+  PreAuthenticationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/auth/preAuthentication.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LoginAttemptsTable
+
+  PostAuthenticationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/auth/postAuthentication.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LoginAttemptsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LoginDevicesTable
+        - SESCrudPolicy:
+            IdentityName: "*"
+
+  DefineAuthChallengeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/auth/defineAuthChallenge.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LoginAttemptsTable
+
+  # Cognito Lambda Trigger Permissions
+  PreAuthenticationFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PreAuthenticationFunction
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !GetAtt UserPool.Arn
+
+  PostAuthenticationFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PostAuthenticationFunction
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !GetAtt UserPool.Arn
+
+  DefineAuthChallengeFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DefineAuthChallengeFunction
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !GetAtt UserPool.Arn
+
+  # SNS Topic for CloudWatch Alarms
+  SecurityAlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub cloudport-${Environment}-security-alarms
+      DisplayName: CloudPort Security Alarms
+      Subscription:
+        - Endpoint: yukinag@dotqinc.com
+          Protocol: email
+
+  # CloudWatch Alarms for Security Monitoring
+  UnauthorizedApiCallsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub cloudport-${Environment}-unauthorized-api-calls
+      AlarmDescription: Alert on high number of 401/403 errors
+      MetricName: 4XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref SecurityAlarmTopic
+      Dimensions:
+        - Name: ApiName
+          Value: !Ref CloudPortApi
+
+  PaymentErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub cloudport-${Environment}-payment-errors
+      AlarmDescription: Alert on payment processing errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref SecurityAlarmTopic
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ProcessPaymentFunction
+
+  RefundErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub cloudport-${Environment}-refund-errors
+      AlarmDescription: Alert on refund processing errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref SecurityAlarmTopic
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ProcessRefundFunction
 
 Outputs:
   ApiEndpoint:

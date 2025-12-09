@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { getConversations } from '../../services/messages'
+import { getConversations, deleteConversation } from '../../services/messages'
 import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
 import { usePagination } from '../../hooks/usePagination'
 import Pagination from '../../components/common/Pagination'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 
 interface EnrichedConversation {
   conversationId: string
@@ -25,9 +27,12 @@ interface EnrichedConversation {
 
 function ConversationList() {
   const { user } = useAuth()
+  const { showSuccess, showError } = useToast()
   const [conversations, setConversations] = useState<EnrichedConversation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [conversationToDelete, setConversationToDelete] = useState<string | null>(null)
 
   // Pagination
   const { currentPage, totalPages, currentItems, goToPage } = usePagination({
@@ -47,6 +52,27 @@ function ConversationList() {
       setError(err.message || 'メッセージ一覧の取得に失敗しました')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDeleteClick = (e: React.MouseEvent, conversationId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setConversationToDelete(conversationId)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!conversationToDelete) return
+
+    try {
+      await deleteConversation(conversationToDelete)
+      showSuccess('会話を削除しました')
+      setConversations(conversations.filter(c => c.conversationId !== conversationToDelete))
+      setDeleteConfirmOpen(false)
+      setConversationToDelete(null)
+    } catch (err: any) {
+      showError(err.message || '会話の削除に失敗しました')
     }
   }
 
@@ -116,59 +142,82 @@ function ConversationList() {
                 : conversation.unreadCountCompany > 0
 
               return (
-                <Link
+                <div
                   key={conversation.conversationId}
-                  to={`/messages/${conversation.conversationId}`}
-                  className={`block glass-dark p-6 rounded-2xl border shadow-xl hover:shadow-2xl transition-all duration-300 card-hover animate-slide-up ${
+                  className={`relative block glass-dark p-6 rounded-2xl border shadow-xl hover:shadow-2xl transition-all duration-300 card-hover animate-slide-up ${
                     isUnread ? 'border-[#FF6B35] ring-2 ring-[#FF6B35]/30' : 'border-[#00E5FF]/20'
                   }`}
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
-                  <div className="flex items-start gap-4">
-                    {conversation.otherUser?.avatar ? (
-                      <img
-                        src={conversation.otherUser.avatar}
-                        alt={conversation.otherUser.displayName}
-                        className="w-12 h-12 rounded-full object-cover border-2 border-[#00E5FF]/30"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-[#2C4875]/30 border border-[#00E5FF]/20 flex items-center justify-center">
-                        <span className="text-[#00E5FF] font-semibold text-lg">
-                          {conversation.otherUser?.displayName?.charAt(0) || '?'}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1 mr-4">
-                          <h3 className="font-bold text-lg text-white">
-                            {conversation.otherUser?.displayName || '不明なユーザー'}
-                          </h3>
-                          <p className="text-sm text-[#E8EEF7]/60">
-                            案件: {conversation.jobTitle || '不明'}
-                          </p>
-                          {conversation.jobDescription && (
-                            <p className="text-sm text-[#E8EEF7]/50 mt-1 line-clamp-2">
-                              {conversation.jobDescription}
-                            </p>
+                  <Link to={`/messages/${conversation.conversationId}`} className="block">
+                    <div className="flex flex-col gap-4">
+                      {/* Top row: User info + timestamp + delete button */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          {conversation.otherUser?.avatar ? (
+                            <img
+                              src={conversation.otherUser.avatar}
+                              alt={conversation.otherUser.displayName}
+                              className="w-12 h-12 rounded-full object-cover border-2 border-[#00E5FF]/30"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-[#2C4875]/30 border border-[#00E5FF]/20 flex items-center justify-center">
+                              <span className="text-[#00E5FF] font-semibold text-lg">
+                                {conversation.otherUser?.displayName?.charAt(0) || '?'}
+                              </span>
+                            </div>
                           )}
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-base text-white">
+                              {conversation.otherUser?.displayName || '不明なユーザー'}
+                            </h3>
+                            <p className="text-xs text-[#E8EEF7]/40">
+                              {new Date(conversation.lastMessageAt).toLocaleDateString()}
+                              {' '}
+                              {new Date(conversation.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-xs text-[#E8EEF7]/50">
-                            {new Date(conversation.lastMessageAt).toLocaleDateString()}
-                            {' '}
-                            {new Date(conversation.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </p>
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           {isUnread && (
-                            <span className="inline-block mt-1 px-2 py-1 bg-[#FF6B35] text-white text-xs rounded-full font-bold">
+                            <span className="px-3 py-1 bg-[#FF6B35] text-white text-xs rounded-full font-bold">
                               新着
                             </span>
                           )}
+                          <button
+                            onClick={(e) => handleDeleteClick(e, conversation.conversationId)}
+                            className="p-2 text-[#E8EEF7]/50 hover:text-[#FF6B35] hover:bg-[#FF6B35]/10 rounded-lg transition-all duration-300"
+                            title="この会話を削除"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
                         </div>
+                      </div>
+
+                    {/* Job info section - Large and prominent */}
+                    <div className="pl-1 border-l-4 border-[#00E5FF]/40">
+                      <div className="ml-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <svg className="w-5 h-5 text-[#00E5FF] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          <span className="text-xs font-bold text-[#00E5FF] uppercase tracking-wider">案件</span>
+                        </div>
+                        <h4 className="text-xl font-bold text-white mb-2 leading-tight">
+                          {conversation.jobTitle || '不明な案件'}
+                        </h4>
+                        {conversation.jobDescription && (
+                          <p className="text-sm text-[#E8EEF7]/70 leading-relaxed line-clamp-2">
+                            {conversation.jobDescription}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
                 </Link>
+                </div>
               )
             })}
           </div>
@@ -183,6 +232,19 @@ function ConversationList() {
           />
         )}
       </div>
+
+      <ConfirmDialog
+        title="会話を削除"
+        message="この会話を削除してもよろしいですか？この操作は取り消せません。"
+        confirmText="削除"
+        cancelText="キャンセル"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => {
+          setDeleteConfirmOpen(false)
+          setConversationToDelete(null)
+        }}
+        isOpen={deleteConfirmOpen}
+      />
     </div>
   )
 }

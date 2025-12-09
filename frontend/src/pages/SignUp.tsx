@@ -27,7 +27,7 @@ function SignUp() {
 
     try {
       await signup(email, password, userType)
-      navigate('/verify-email', { state: { email } })
+      navigate('/verify-email', { state: { email, password } })
     } catch (err: any) {
       setError(err.message || 'サインアップに失敗しました')
     } finally {
@@ -78,11 +78,10 @@ function SignUp() {
                 <button
                   type="button"
                   onClick={() => setUserType('engineer')}
-                  className={`relative p-4 rounded-lg border-2 transition-all duration-300 ${
-                    userType === 'engineer'
+                  className={`relative p-4 rounded-lg border-2 transition-all duration-300 ${userType === 'engineer'
                       ? 'border-[#00E5FF] bg-[#00E5FF]/10'
                       : 'border-[#00E5FF]/20 bg-[#0A1628]/30 hover:border-[#00E5FF]/40'
-                  }`}
+                    }`}
                 >
                   <div className="flex flex-col items-center gap-2">
                     <svg className={`w-8 h-8 ${userType === 'engineer' ? 'text-[#00E5FF]' : 'text-[#E8EEF7]/60'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,11 +101,10 @@ function SignUp() {
                 <button
                   type="button"
                   onClick={() => setUserType('company')}
-                  className={`relative p-4 rounded-lg border-2 transition-all duration-300 ${
-                    userType === 'company'
+                  className={`relative p-4 rounded-lg border-2 transition-all duration-300 ${userType === 'company'
                       ? 'border-[#FF6B35] bg-[#FF6B35]/10'
                       : 'border-[#FF6B35]/20 bg-[#0A1628]/30 hover:border-[#FF6B35]/40'
-                  }`}
+                    }`}
                 >
                   <div className="flex flex-col items-center gap-2">
                     <svg className={`w-8 h-8 ${userType === 'company' ? 'text-[#FF6B35]' : 'text-[#E8EEF7]/60'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import * as authService from '../services/auth'
+import { useAuth } from '../contexts/AuthContext'
 
 function VerifyEmail() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { login } = useAuth()
   const email = location.state?.email || ''
+  const password = location.state?.password || ''
 
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
@@ -19,9 +22,16 @@ function VerifyEmail() {
 
     try {
       await authService.confirmSignUp(email, code)
-      navigate('/login', {
-        state: { message: 'メールアドレスの確認が完了しました。ログインしてください。' }
-      })
+
+      if (password) {
+        // Auto login if password is available
+        await login(email, password)
+        navigate('/')
+      } else {
+        navigate('/login', {
+          state: { message: 'メールアドレスの確認が完了しました。ログインしてください。' }
+        })
+      }
     } catch (err: any) {
       setError(err.message || '確認コードが無効です')
     } finally {

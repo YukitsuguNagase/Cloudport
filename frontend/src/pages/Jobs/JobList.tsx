@@ -1,18 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { Job } from '../../types/job'
 import { getJobs, getJobDetail } from '../../services/jobs'
 import { useAuth } from '../../contexts/AuthContext'
-import { applyToJob, getMyApplications } from '../../services/applications'
-import { useToast } from '../../contexts/ToastContext'
+import { getMyApplications } from '../../services/applications'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
-import { validateApplicationMessage, sanitizeInput } from '../../utils/validation'
 import { usePagination } from '../../hooks/usePagination'
 import Pagination from '../../components/common/Pagination'
+import JobDetailModal from '../../components/jobs/JobDetailModal'
+import LoginRequestModal from '../../components/auth/LoginRequestModal'
 
 function JobList() {
   const { user } = useAuth()
-  const { showSuccess, showError } = useToast()
   const [jobs, setJobs] = useState<Job[]>([])
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,12 +20,6 @@ function JobList() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
-
-  // Application modal states
-  const [showApplicationModal, setShowApplicationModal] = useState(false)
-  const [applicationMessage, setApplicationMessage] = useState('')
-  const [applying, setApplying] = useState(false)
-  const [applicationError, setApplicationError] = useState('')
   const [hasApplied, setHasApplied] = useState(false)
 
   // Search and filter states
@@ -45,6 +37,7 @@ function JobList() {
   })
   const [remoteOnly, setRemoteOnly] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
 
   useEffect(() => {
     fetchJobs()
@@ -53,6 +46,8 @@ function JobList() {
   useEffect(() => {
     if (selectedJobId) {
       fetchJobDetail(selectedJobId)
+    } else {
+      setSelectedJob(null)
     }
   }, [selectedJobId])
 
@@ -173,34 +168,17 @@ function JobList() {
   }
 
   const handleJobClick = (jobId: string) => {
-    setSelectedJobId(selectedJobId === jobId ? null : jobId)
+    setSelectedJobId(jobId)
   }
 
-  const handleApply = async () => {
-    // Validate application message
-    const validation = validateApplicationMessage(applicationMessage)
-    if (!validation.isValid) {
-      setApplicationError(validation.error!)
-      showError(validation.error!)
-      return
-    }
+  const handleCloseModal = () => {
+    setSelectedJobId(null)
+    setSelectedJob(null)
+  }
 
-    setApplying(true)
-    setApplicationError('')
-
-    try {
-      await applyToJob(selectedJobId!, { message: sanitizeInput(applicationMessage) })
-      setShowApplicationModal(false)
-      setApplicationMessage('')
-      setHasApplied(true)
-      showSuccess('応募が完了しました')
-    } catch (err: any) {
-      const errorMessage = err.message || '応募に失敗しました'
-      setApplicationError(errorMessage)
-      showError(errorMessage)
-    } finally {
-      setApplying(false)
-    }
+  const handleApplySuccess = () => {
+    setHasApplied(true)
+    // Optionally refresh job list or update counts if needed
   }
 
   if (loading) {
@@ -233,19 +211,26 @@ function JobList() {
       <div className="absolute bottom-20 right-10 w-96 h-96 bg-[#FF6B35]/10 rounded-full blur-3xl animate-cloud-float" style={{ animationDelay: '2s' }}></div>
 
       <div className="container mx-auto px-4 py-8 relative z-10 flex-1">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
           <h1 className="text-4xl font-bold text-white font-mono">
             <span className="gradient-text-cyan">案件</span>
             <span className="text-[#FF6B35]">一覧</span>
           </h1>
-          {user?.userType === 'company' && (
-            <Link
-              to="/jobs/new"
-              className="btn-primary px-6 py-3 rounded-lg transition-all duration-300"
+          <div className="flex gap-4 w-full md:w-auto justify-end">
+            <button
+              onClick={() => {
+                if (user?.userType === 'company') {
+                  // Navigate to new job page
+                  window.location.href = '/jobs/new'
+                } else if (!user) {
+                  setShowLoginModal(true)
+                }
+              }}
+              className={`btn-primary px-6 py-3 rounded-lg transition-all duration-300 w-full md:w-auto ${user?.userType === 'engineer' ? 'hidden' : ''}`}
             >
               案件を投稿
-            </Link>
-          )}
+            </button>
+          </div>
         </div>
 
         {/* Search and Filter Section */}
@@ -307,21 +292,24 @@ function JobList() {
                 <label className="block text-sm font-semibold text-[#E8EEF7] mb-2">
                   予算範囲（月額・万円）
                 </label>
-                <div className="flex gap-4 items-center">
+                <div className="flex flex-col sm:flex-row gap-4 items-center">
                   <input
                     type="number"
                     placeholder="下限"
                     value={budgetMin}
                     onChange={(e) => setBudgetMin(e.target.value ? Number(e.target.value) : '')}
-                    className="flex-1 px-4 py-2 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
+                    className="w-full sm:flex-1 px-4 py-2 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
+                    min="0"
                   />
-                  <span className="text-[#E8EEF7]/60">〜</span>
+                  <span className="text-[#E8EEF7]/60 hidden sm:inline">〜</span>
+                  <span className="text-[#E8EEF7]/60 sm:hidden">から</span>
                   <input
                     type="number"
                     placeholder="上限"
                     value={budgetMax}
                     onChange={(e) => setBudgetMax(e.target.value ? Number(e.target.value) : '')}
-                    className="flex-1 px-4 py-2 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
+                    className="w-full sm:flex-1 px-4 py-2 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
+                    min="0"
                   />
                 </div>
               </div>
@@ -399,9 +387,8 @@ function JobList() {
             <div key={job.jobId}>
               <div
                 onClick={() => handleJobClick(job.jobId)}
-                className={`glass-dark p-6 rounded-2xl border shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer card-hover animate-slide-up ${
-                  selectedJobId === job.jobId ? 'border-[#00E5FF] ring-2 ring-[#00E5FF]/50' : 'border-[#00E5FF]/20'
-                }`}
+                className={`glass-dark p-6 rounded-2xl border shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer card-hover animate-slide-up ${selectedJobId === job.jobId ? 'border-[#00E5FF] ring-2 ring-[#00E5FF]/50' : 'border-[#00E5FF]/20'
+                  }`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex-1">
@@ -480,154 +467,6 @@ function JobList() {
                   <span className="text-[#E8EEF7]/60">{job.applicationCount}件の応募</span>
                 </div>
               </div>
-
-              {/* Expanded detail view */}
-              {selectedJobId === job.jobId && selectedJob && !loadingDetail && (
-                <div className="glass-dark border-t-2 border-[#00E5FF] p-8 rounded-b-2xl shadow-2xl animate-slide-down">
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex gap-4 text-sm text-[#E8EEF7]/60 mb-4">
-                          <span>掲載日: {new Date(selectedJob.createdAt).toLocaleDateString()}</span>
-                          <span>応募数: {selectedJob.applicationCount}件</span>
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              selectedJob.status === 'open'
-                                ? 'bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/30'
-                                : selectedJob.status === 'filled'
-                                ? 'bg-[#2C4875]/50 text-[#E8EEF7] border border-[#E8EEF7]/20'
-                                : 'bg-[#FF6B35]/20 text-[#FF6B35] border border-[#FF6B35]/30'
-                            }`}
-                          >
-                            {selectedJob.status === 'open' ? '募集中' : selectedJob.status === 'filled' ? '募集終了' : 'クローズ'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="mb-6">
-                      {isOwner && (
-                        <div className="flex gap-2">
-                          <Link
-                            to={`/jobs/${selectedJobId}/edit`}
-                            className="bg-[#1A2942]/80 text-[#E8EEF7] px-4 py-2 rounded-lg hover:bg-[#2C4875] transition-all duration-300 font-semibold"
-                          >
-                            編集
-                          </Link>
-                          <Link
-                            to={`/jobs/${selectedJobId}/applicants`}
-                            className="btn-primary px-4 py-2 rounded-lg font-semibold"
-                          >
-                            応募者一覧
-                          </Link>
-                        </div>
-                      )}
-                      {user?.userType === 'engineer' && selectedJob.status === 'open' && (
-                        hasApplied ? (
-                          <button
-                            disabled
-                            className="bg-[#2C4875]/50 text-[#E8EEF7]/50 px-6 py-3 rounded-lg cursor-not-allowed w-full font-semibold border border-[#E8EEF7]/20"
-                          >
-                            応募済み
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setShowApplicationModal(true)}
-                            className="btn-primary px-6 py-3 rounded-lg w-full font-semibold"
-                          >
-                            応募する
-                          </button>
-                        )
-                      )}
-                    </div>
-
-                    <div>
-                      <h2 className="text-xl font-bold text-white mb-3">案件概要</h2>
-                      <p className="text-[#E8EEF7]/80 whitespace-pre-wrap">{selectedJob.description}</p>
-                    </div>
-
-                    <div>
-                      <h2 className="text-xl font-bold text-white mb-3">主要AWSサービス</h2>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedJob.requirements.awsServices.map((service) => (
-                          <span
-                            key={service}
-                            className="badge-cyan px-3 py-1 rounded-full text-sm"
-                          >
-                            {service}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {selectedJob.requirements.certifications && selectedJob.requirements.certifications.length > 0 && (
-                      <div>
-                        <h2 className="text-xl font-bold text-white mb-3">必要なAWS資格</h2>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedJob.requirements.certifications.map((cert, index) => (
-                            <span
-                              key={index}
-                              className="badge-primary px-3 py-1 rounded-full text-sm"
-                            >
-                              {cert}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedJob.requirements.experience && (
-                      <div>
-                        <h2 className="text-xl font-bold text-white mb-3">必要な経験</h2>
-                        <p className="text-[#E8EEF7]/80">{selectedJob.requirements.experience}</p>
-                      </div>
-                    )}
-
-                    {selectedJob.requirements.requiredSkills && selectedJob.requirements.requiredSkills.length > 0 && (
-                      <div>
-                        <h2 className="text-xl font-bold text-white mb-3">必須スキル</h2>
-                        <ul className="list-disc list-inside space-y-1 text-[#E8EEF7]/80">
-                          {selectedJob.requirements.requiredSkills.map((skill, index) => (
-                            <li key={index}>{skill}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {selectedJob.requirements.preferredSkills && selectedJob.requirements.preferredSkills.length > 0 && (
-                      <div>
-                        <h2 className="text-xl font-bold text-white mb-3">歓迎スキル</h2>
-                        <ul className="list-disc list-inside space-y-1 text-[#E8EEF7]/80">
-                          {selectedJob.requirements.preferredSkills.map((skill, index) => (
-                            <li key={index}>{skill}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    <div>
-                      <h2 className="text-xl font-bold text-white mb-3">期間</h2>
-                      <p className="text-[#E8EEF7]/80">
-                        {selectedJob.duration.type === 'spot' ? 'スポット' : selectedJob.duration.type === 'short' ? '短期' : '長期'}
-                        {selectedJob.duration.type !== 'spot' && selectedJob.duration.months && ` (${selectedJob.duration.months}ヶ月)`}
-                      </p>
-                    </div>
-
-                    {selectedJob.budget && (
-                      <div>
-                        <h2 className="text-xl font-bold text-white mb-3">
-                          {selectedJob.duration.type === 'spot' ? '予算' : '月額単価'}
-                        </h2>
-                        <p className="text-[#FF6B35] font-semibold text-lg">
-                          {selectedJob.budget.min?.toLocaleString()}円 〜 {selectedJob.budget.max?.toLocaleString()}円
-                          {selectedJob.duration.type !== 'spot' && '/月'}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -664,68 +503,21 @@ function JobList() {
         )}
       </div>
 
-      {/* Application Modal */}
-      {showApplicationModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-          <div className="glass-dark rounded-2xl shadow-2xl p-8 max-w-2xl w-full mx-4 border border-[#00E5FF]/20 animate-scale-in">
-            <h2 className="text-2xl font-bold text-white mb-4">案件に応募する</h2>
+      <JobDetailModal
+        isOpen={!!selectedJobId}
+        onClose={handleCloseModal}
+        job={selectedJob}
+        isOwner={!!isOwner}
+        hasApplied={hasApplied}
+        onApplySuccess={handleApplySuccess}
+        loading={loadingDetail}
+      />
 
-            {applicationError && (
-              <div className="bg-[#FF6B35]/10 border border-[#FF6B35]/30 text-[#FF6B35] p-4 rounded-lg mb-4 animate-slide-down">
-                <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {applicationError}
-                </div>
-              </div>
-            )}
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-[#E8EEF7] mb-2">
-                応募メッセージ <span className="text-[#FF6B35]">*</span>
-              </label>
-              <textarea
-                value={applicationMessage}
-                onChange={(e) => setApplicationMessage(e.target.value)}
-                rows={8}
-                className="w-full px-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
-                placeholder="自己PRやこの案件に応募する理由を記載してください"
-              />
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowApplicationModal(false)
-                  setApplicationMessage('')
-                  setApplicationError('')
-                }}
-                className="flex-1 bg-[#1A2942]/80 text-[#E8EEF7] py-3 rounded-lg font-semibold hover:bg-[#2C4875] transition-all duration-300"
-                disabled={applying}
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleApply}
-                disabled={applying}
-                className="flex-1 btn-primary py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {applying ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    応募中...
-                  </span>
-                ) : '応募する'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <LoginRequestModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        message="案件を投稿するには、企業アカウントとしてログインが必要です"
+      />
     </div>
   )
 }

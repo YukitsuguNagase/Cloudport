@@ -91,6 +91,8 @@ function ContractDetail() {
         return <span className="px-3 py-1 rounded-full text-xs badge-warning">決済待ち</span>
       case 'paid':
         return <span className="px-3 py-1 rounded-full text-xs badge-cyan">支払い完了</span>
+      case 'refunded':
+        return <span className="px-3 py-1 rounded-full text-xs bg-red-500/20 text-red-400">返金済み</span>
       default:
         return null
     }

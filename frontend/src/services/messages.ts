@@ -35,3 +35,7 @@ export const sendMessage = async (
 export const markAsRead = async (conversationId: string): Promise<void> => {
   await apiClient.put(`/conversations/${conversationId}/read`)
 }
+
+export const deleteConversation = async (conversationId: string): Promise<void> => {
+  await apiClient.delete(`/conversations/${conversationId}`)
+}

@@ -26,7 +26,12 @@ import NotificationList from './pages/Notifications/NotificationList'
 import EngineerSearch from './pages/Scouts/EngineerSearch'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
+import Legal from './pages/Legal'
 import Contact from './pages/Contact'
+import AdminLogin from './pages/Admin/AdminLogin'
+import AdminDashboard from './pages/Admin/AdminDashboard'
+import AdminUsers from './pages/Admin/AdminUsers'
+import AdminLogs from './pages/Admin/AdminLogs'
 
 function App() {
   return (
@@ -43,6 +48,7 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/legal" element={<Legal />} />
           <Route path="/contact" element={<Contact />} />
 
           {/* Protected routes - with layout */}
@@ -70,6 +76,14 @@ function App() {
           <Route path="/payments" element={<Layout><PaymentList /></Layout>} />
 
           <Route path="/scouts/search" element={<Layout><EngineerSearch /></Layout>} />
+
+          {/* Admin routes - no regular layout */}
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/logs" element={<AdminLogs />} />
+          <Route path="/admin/jobs" element={<AdminDashboard />} /> {/* TODO: Replace with AdminJobs */}
+          <Route path="/admin/settings" element={<AdminDashboard />} /> {/* TODO: Replace with AdminSettings */}
         </Routes>
         </Router>
       </ToastProvider>

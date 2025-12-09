@@ -201,7 +201,7 @@ function ChatRoom() {
         </div>
       )}
 
-      {conversation?.isJobDeleted && (
+      {(conversation?.isJobDeleted || conversation?.jobStatus === 'closed' || conversation?.jobStatus === 'filled') && (
         <div className="container mx-auto px-4 relative z-10">
           <div className="bg-[#FF6B35]/10 border-l-4 border-[#FF6B35] p-4 rounded-lg mb-4 animate-slide-down">
             <div className="flex items-start gap-3">
@@ -212,7 +212,9 @@ function ChatRoom() {
               </div>
               <div className="flex-1">
                 <p className="text-sm text-[#FF6B35]">
-                  <span className="font-bold">この案件は削除されました。</span><br />
+                  <span className="font-bold">
+                    {conversation?.isJobDeleted ? 'この案件は削除されました。' : 'この案件の募集は終了しました。'}
+                  </span><br />
                   これまでのメッセージ履歴は閲覧できますが、新しいメッセージの送信やオファー申請はできません。
                 </p>
               </div>
@@ -365,9 +367,11 @@ function ChatRoom() {
 
           {/* Message input */}
           <div className="border-t border-[#00E5FF]/20 p-4 bg-[#0A1628]/30">
-            {conversation?.isJobDeleted ? (
+            {(conversation?.isJobDeleted || conversation?.jobStatus === 'closed' || conversation?.jobStatus === 'filled') ? (
               <div className="text-center py-4 text-[#E8EEF7]/60">
-                <p className="text-sm">案件が削除されたため、メッセージの送信はできません。</p>
+                <p className="text-sm">
+                  {conversation?.isJobDeleted ? '案件が削除されたため、メッセージの送信はできません。' : '案件の募集が終了したため、メッセージの送信はできません。'}
+                </p>
               </div>
             ) : existingContract?.status === 'pending_payment' && user?.userType === 'company' ? (
               <div className="text-center py-4">
@@ -396,13 +400,7 @@ function ChatRoom() {
                 <textarea
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSendMessage(e)
-                    }
-                  }}
-                  placeholder="メッセージを入力... (Shift+Enterで改行)"
+                  placeholder="メッセージを入力..."
                   className="flex-1 border border-[#00E5FF]/20 bg-[#0A1628]/50 text-white placeholder-[#E8EEF7]/40 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00E5FF] resize-none transition-all duration-300"
                   rows={3}
                   disabled={sending}

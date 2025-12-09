@@ -22,7 +22,7 @@ let globalCardNumberElement: any = null
 let globalCardExpiryElement: any = null
 let globalCardCvcElement: any = null
 
-function PaymentModal({ isOpen, amount, contractId, onClose, onSuccess, onError }: PaymentModalProps) {
+function PaymentModal({ isOpen, amount, contractId: _contractId, onClose, onSuccess, onError }: PaymentModalProps) {
   const [loading, setLoading] = useState(false)
   const [elementsReady, setElementsReady] = useState(false)
   const cardNumberRef = useRef<HTMLDivElement>(null)

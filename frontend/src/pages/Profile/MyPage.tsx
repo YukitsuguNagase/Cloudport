@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { EngineerProfile, CompanyProfile } from '../../types/user'
+import LoadingSpinner from '../../components/common/LoadingSpinner'
 
 function MyPage() {
   const { user } = useAuth()
 
   if (!user) {
-    return <div>Loading...</div>
+    return <LoadingSpinner fullScreen />
   }
 
   const isEngineer = user.userType === 'engineer'
