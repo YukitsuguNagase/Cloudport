@@ -4,6 +4,8 @@ import { DynamoDBDocumentClient, GetCommand, UpdateCommand, QueryCommand, PutCom
 import { successResponse, errorResponse } from '../../utils/response.js'
 import { createNotification } from '../../utils/notifications.js'
 import { v4 as uuidv4 } from 'uuid'
+import { sendEmail } from '../../utils/email.js'
+import { contractApprovedEmail } from '../../utils/emailTemplates.js'
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
@@ -142,6 +144,51 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         link: `/contracts/${contractId}`,
         relatedId: contractId,
       })
+
+      // Send email notification to company
+      try {
+        const [companyResult, engineerResult, jobResult] = await Promise.all([
+          docClient.send(
+            new GetCommand({
+              TableName: USERS_TABLE,
+              Key: { userId: contract.companyId },
+            })
+          ),
+          docClient.send(
+            new GetCommand({
+              TableName: USERS_TABLE,
+              Key: { userId: contract.engineerId },
+            })
+          ),
+          docClient.send(
+            new GetCommand({
+              TableName: JOBS_TABLE,
+              Key: { jobId: contract.jobId },
+            })
+          ),
+        ])
+
+        const company = companyResult.Item
+        const engineer = engineerResult.Item
+        const job = jobResult.Item
+
+        if (company?.email) {
+          const companyName = company.displayName || company.companyName || company.email.split('@')[0]
+          const engineerName = engineer?.displayName || engineer?.name || engineer?.email?.split('@')[0] || 'エンジニア'
+          const jobTitle = job?.title || '案件'
+
+          const template = contractApprovedEmail(companyName, engineerName, jobTitle, contract.contractAmount, contractId)
+          await sendEmail({
+            to: company.email,
+            subject: template.subject,
+            body: template.body,
+          })
+          console.log(`Contract approved notification email sent to company ${company.email}`)
+        }
+      } catch (emailError) {
+        console.error('Error sending contract approved email:', emailError)
+        // Don't block the response
+      }
 
       // Send automatic message to conversation when engineer approves
       try {

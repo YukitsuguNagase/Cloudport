@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch-logs": "^3.947.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.948.0",
     "@aws-sdk/client-dynamodb": "^3.470.0",
     "@aws-sdk/client-secrets-manager": "^3.470.0",
     "@aws-sdk/client-ses": "^3.470.0",

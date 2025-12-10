@@ -20,6 +20,7 @@ import ContractList from './pages/Contracts/ContractList'
 import ContractDetail from './pages/Contracts/ContractDetail'
 import MyPage from './pages/Profile/MyPage'
 import ProfileEdit from './pages/Profile/ProfileEdit'
+import MFASettings from './pages/Profile/MFASettings'
 import PaymentList from './pages/Payments/PaymentList'
 import EngineerProfileView from './pages/Users/EngineerProfileView'
 import NotificationList from './pages/Notifications/NotificationList'
@@ -32,6 +33,7 @@ import AdminLogin from './pages/Admin/AdminLogin'
 import AdminDashboard from './pages/Admin/AdminDashboard'
 import AdminUsers from './pages/Admin/AdminUsers'
 import AdminLogs from './pages/Admin/AdminLogs'
+import SecuritySettings from './pages/Admin/SecuritySettings'
 
 function App() {
   return (
@@ -68,6 +70,7 @@ function App() {
 
           <Route path="/profile" element={<Layout><MyPage /></Layout>} />
           <Route path="/profile/edit" element={<Layout><ProfileEdit /></Layout>} />
+          <Route path="/profile/mfa" element={<Layout><MFASettings /></Layout>} />
 
           <Route path="/users/:userId" element={<Layout><EngineerProfileView /></Layout>} />
 
@@ -82,6 +85,7 @@ function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/logs" element={<AdminLogs />} />
+          <Route path="/admin/security" element={<SecuritySettings />} />
           <Route path="/admin/jobs" element={<AdminDashboard />} /> {/* TODO: Replace with AdminJobs */}
           <Route path="/admin/settings" element={<AdminDashboard />} /> {/* TODO: Replace with AdminSettings */}
         </Routes>

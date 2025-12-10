@@ -5,12 +5,15 @@ import { v4 as uuidv4 } from 'uuid'
 import { successResponse, errorResponse } from '../../utils/response.js'
 import { Application } from '../../models/Application.js'
 import { createNotification } from '../../utils/notifications.js'
+import { sendEmail } from '../../utils/email.js'
+import { newApplicationEmail } from '../../utils/emailTemplates.js'
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
 
 const APPLICATIONS_TABLE = process.env.APPLICATIONS_TABLE!
 const JOBS_TABLE = process.env.JOBS_TABLE!
+const USERS_TABLE = process.env.USERS_TABLE!
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
@@ -108,6 +111,43 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       link: `/jobs/${jobId}/applicants`,
       relatedId: application.applicationId,
     })
+
+    // Send email notification to company
+    try {
+      const [companyResult, engineerResult] = await Promise.all([
+        docClient.send(
+          new GetCommand({
+            TableName: USERS_TABLE,
+            Key: { userId: job.companyId },
+          })
+        ),
+        docClient.send(
+          new GetCommand({
+            TableName: USERS_TABLE,
+            Key: { userId },
+          })
+        ),
+      ])
+
+      const company = companyResult.Item
+      const engineer = engineerResult.Item
+
+      if (company?.email) {
+        const companyName = company.displayName || company.companyName || company.email.split('@')[0]
+        const engineerName = engineer?.displayName || engineer?.name || engineer?.email?.split('@')[0] || 'エンジニア'
+
+        const template = newApplicationEmail(companyName, job.title, engineerName, application.applicationId)
+        await sendEmail({
+          to: company.email,
+          subject: template.subject,
+          body: template.body,
+        })
+        console.log(`Application notification email sent to ${company.email}`)
+      }
+    } catch (emailError) {
+      console.error('Error sending application notification email:', emailError)
+      // Don't block the response
+    }
 
     return successResponse(application, 201)
   } catch (error) {

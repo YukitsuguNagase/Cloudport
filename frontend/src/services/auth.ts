@@ -17,7 +17,9 @@ const userPool = new CognitoUserPool(poolData)
 export const signup = async (
   email: string,
   password: string,
-  userType: UserType
+  userType: UserType,
+  name?: string,
+  phoneNumber?: string
 ): Promise<void> => {
   return new Promise((resolve, reject) => {
     const attributeList = [
@@ -30,6 +32,33 @@ export const signup = async (
         Value: userType,
       }),
     ]
+
+    // 氏名を追加
+    if (name) {
+      attributeList.push(
+        new CognitoUserAttribute({
+          Name: 'name',
+          Value: name,
+        })
+      )
+    }
+
+    // 電話番号を追加（E.164形式に変換）
+    if (phoneNumber) {
+      // 日本の電話番号を+81形式に変換
+      const formattedPhone = phoneNumber.startsWith('+')
+        ? phoneNumber
+        : phoneNumber.startsWith('0')
+        ? `+81${phoneNumber.substring(1)}`
+        : `+81${phoneNumber}`
+
+      attributeList.push(
+        new CognitoUserAttribute({
+          Name: 'phone_number',
+          Value: formattedPhone,
+        })
+      )
+    }
 
     userPool.signUp(email, password, attributeList, [], (err) => {
       if (err) {
@@ -209,6 +238,32 @@ export const getIdToken = async (): Promise<string> => {
       }
 
       const token = session.getIdToken().getJwtToken()
+      resolve(token)
+    })
+  })
+}
+
+export const getAccessToken = async (): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const cognitoUser = userPool.getCurrentUser()
+
+    if (!cognitoUser) {
+      reject(new Error('No user logged in'))
+      return
+    }
+
+    cognitoUser.getSession((err: Error | null, session: any) => {
+      if (err) {
+        reject(err)
+        return
+      }
+
+      if (!session.isValid()) {
+        reject(new Error('Session is not valid'))
+        return
+      }
+
+      const token = session.getAccessToken().getJwtToken()
       resolve(token)
     })
   })

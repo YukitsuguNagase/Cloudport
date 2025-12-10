@@ -6,6 +6,8 @@ import { UserType } from '../types/user'
 function SignUp() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [userType, setUserType] = useState<UserType>('engineer')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [error, setError] = useState('')
@@ -17,6 +19,25 @@ function SignUp() {
     e.preventDefault()
     setError('')
 
+    // 氏名の必須チェック
+    if (!name.trim()) {
+      setError('氏名を入力してください')
+      return
+    }
+
+    // 電話番号の必須チェック
+    if (!phoneNumber.trim()) {
+      setError('電話番号を入力してください')
+      return
+    }
+
+    // 電話番号の形式チェック（日本の電話番号）
+    const phoneRegex = /^0\d{9,10}$/
+    if (!phoneRegex.test(phoneNumber.replace(/-/g, ''))) {
+      setError('正しい電話番号を入力してください（例: 090-1234-5678）')
+      return
+    }
+
     // 利用規約への同意チェック
     if (!agreedToTerms) {
       setError('利用規約とプライバシーポリシーに同意してください')
@@ -26,7 +47,9 @@ function SignUp() {
     setLoading(true)
 
     try {
-      await signup(email, password, userType)
+      // ハイフンを削除して送信
+      const cleanedPhone = phoneNumber.replace(/-/g, '')
+      await signup(email, password, userType, name, cleanedPhone)
       navigate('/verify-email', { state: { email, password } })
     } catch (err: any) {
       setError(err.message || 'サインアップに失敗しました')
@@ -121,6 +144,49 @@ function SignUp() {
                   )}
                 </button>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#E8EEF7] mb-2">
+                氏名 <span className="text-[#FF6B35]">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="w-5 h-5 text-[#00E5FF]/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
+                  placeholder="山田 太郎"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#E8EEF7] mb-2">
+                電話番号 <span className="text-[#FF6B35]">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="w-5 h-5 text-[#00E5FF]/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                </div>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-3 bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent transition-all duration-300"
+                  placeholder="090-1234-5678"
+                />
+              </div>
+              <p className="mt-1 text-xs text-[#E8EEF7]/50">※ SMS認証に使用されます</p>
             </div>
 
             <div>

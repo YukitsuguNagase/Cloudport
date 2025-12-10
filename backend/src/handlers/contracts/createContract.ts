@@ -3,6 +3,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb'
 import { successResponse, errorResponse } from '../../utils/response.js'
 import { randomUUID } from 'crypto'
+import { sendEmail } from '../../utils/email.js'
+import { contractRequestEmail } from '../../utils/emailTemplates.js'
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
@@ -11,6 +13,7 @@ const CONTRACTS_TABLE = process.env.CONTRACTS_TABLE!
 const APPLICATIONS_TABLE = process.env.APPLICATIONS_TABLE!
 const USERS_TABLE = process.env.USERS_TABLE!
 const CONVERSATIONS_TABLE = process.env.CONVERSATIONS_TABLE!
+const JOBS_TABLE = process.env.JOBS_TABLE!
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
@@ -130,6 +133,53 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       })
     )
 
+    // Send email notification to the recipient (whoever needs to approve)
+    try {
+      const recipientId = initiatedBy === 'engineer' ? companyId : engineerId
+      const recipientResult = await docClient.send(
+        new GetCommand({
+          TableName: USERS_TABLE,
+          Key: { userId: recipientId },
+        })
+      )
+
+      const jobResult = await docClient.send(
+        new GetCommand({
+          TableName: JOBS_TABLE,
+          Key: { jobId: application.jobId },
+        })
+      )
+
+      const initiatorResult = await docClient.send(
+        new GetCommand({
+          TableName: USERS_TABLE,
+          Key: { userId },
+        })
+      )
+
+      const recipient = recipientResult.Item
+      const job = jobResult.Item
+      const initiator = initiatorResult.Item
+
+      if (recipient?.email && initiatedBy === 'company') {
+        // Email to engineer
+        const engineerName = recipient.displayName || recipient.name || recipient.email.split('@')[0]
+        const companyName = initiator?.displayName || initiator?.companyName || initiator?.email?.split('@')[0] || '企業'
+        const jobTitle = job?.title || '案件'
+
+        const template = contractRequestEmail(engineerName, companyName, jobTitle, contractAmount, contractId)
+        await sendEmail({
+          to: recipient.email,
+          subject: template.subject,
+          body: template.body,
+        })
+        console.log(`Contract request email sent to engineer ${recipient.email}`)
+      }
+    } catch (emailError) {
+      console.error('Error sending contract request email:', emailError)
+      // Don't block the response
+    }
+
     return successResponse(contract)
   } catch (error) {
     console.error('Error creating contract:', error)
@@ -139,7 +189,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
 // Helper function to get company ID from job
 async function getCompanyIdFromJob(jobId: string): Promise<string> {
-  const JOBS_TABLE = process.env.JOBS_TABLE!
   const jobResult = await docClient.send(
     new GetCommand({
       TableName: JOBS_TABLE,

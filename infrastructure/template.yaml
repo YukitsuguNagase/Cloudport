@@ -22,6 +22,7 @@ Globals:
         LOGIN_ATTEMPTS_TABLE: !Ref LoginAttemptsTable
         LOGIN_DEVICES_TABLE: !Ref LoginDevicesTable
         PAYMENT_ATTEMPTS_TABLE: !Ref PaymentAttemptsTable
+        BLOCKED_IPS_TABLE: !Ref BlockedIPsTable
         SENDER_EMAIL: noreply@dotqinc.com
 
 Parameters:
@@ -137,6 +138,10 @@ Resources:
         - Name: email
           Required: true
           Mutable: false
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: false
         - Name: userType
           AttributeDataType: String
           Mutable: true
@@ -428,6 +433,21 @@ Resources:
           AttributeType: S
       KeySchema:
         - AttributeName: userId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  BlockedIPsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloudport-blocked-ips-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: ipAddress
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ipAddress
           KeyType: HASH
       TimeToLiveSpecification:
         AttributeName: ttl
@@ -997,6 +1017,126 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref UsersTable
 
+  GetUserDetailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/admin/getUserDetail.handler
+      Events:
+        GetUserDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /admin/users/{userId}
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ApplicationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ContractsTable
+
+  # Admin Security Functions
+  BlockIPFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/admin/blockIP.handler
+      Events:
+        BlockIP:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /admin/security/block-ip
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BlockedIPsTable
+
+  UnblockIPFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/admin/unblockIP.handler
+      Events:
+        UnblockIP:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /admin/security/unblock-ip/{ipAddress}
+            Method: delete
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BlockedIPsTable
+
+  GetBlockedIPsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/admin/getBlockedIPs.handler
+      Events:
+        GetBlockedIPs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /admin/security/blocked-ips
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlockedIPsTable
+
+  # MFA Management Functions
+  SetupMFAFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/users/setupMFA.handler
+      Events:
+        SetupMFA:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /users/mfa/setup
+            Method: post
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AssociateSoftwareToken
+                - cognito-idp:VerifySoftwareToken
+                - cognito-idp:SetUserMFAPreference
+              Resource: !GetAtt UserPool.Arn
+
+  GetMFAStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/users/getMFAStatus.handler
+      Events:
+        GetMFAStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /users/mfa/status
+            Method: get
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:GetUser
+              Resource: !GetAtt UserPool.Arn
+
   GetSystemLogsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -1166,6 +1306,10 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref LoginAttemptsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref BlockedIPsTable
+        - SESCrudPolicy:
+            IdentityName: "*"
 
   PostAuthenticationFunction:
     Type: AWS::Serverless::Function

@@ -22,6 +22,7 @@ function AdminHeader() {
     { path: '/admin/users', label: 'ユーザー管理' },
     { path: '/admin/jobs', label: '案件管理' },
     { path: '/admin/logs', label: 'システムログ' },
+    { path: '/admin/security', label: 'セキュリティ' },
     { path: '/admin/settings', label: '設定' },
   ]
 

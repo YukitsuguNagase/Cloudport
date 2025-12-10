@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  signup: (email: string, password: string, userType: UserType) => Promise<void>
+  signup: (email: string, password: string, userType: UserType, name?: string, phoneNumber?: string) => Promise<void>
   logout: () => Promise<void>
   updateUser: (user: User) => void
   refreshUser: () => Promise<void>
@@ -41,8 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(loggedInUser)
   }
 
-  const signup = async (email: string, password: string, userType: UserType) => {
-    await authService.signup(email, password, userType)
+  const signup = async (email: string, password: string, userType: UserType, name?: string, phoneNumber?: string) => {
+    await authService.signup(email, password, userType, name, phoneNumber)
   }
 
   const logout = async () => {

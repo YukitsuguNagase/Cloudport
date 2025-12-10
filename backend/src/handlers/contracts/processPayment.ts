@@ -5,6 +5,8 @@ import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-sec
 import { successResponse, errorResponse } from '../../utils/response.js'
 import { createNotification } from '../../utils/notifications.js'
 import Payjp from 'payjp'
+import { sendEmail } from '../../utils/email.js'
+import { paymentCompletedEmailForCompany, paymentCompletedEmailForEngineer } from '../../utils/emailTemplates.js'
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
@@ -338,6 +340,65 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         Key: { contractId },
       })
     )
+
+    const updatedContract = updatedContractResult.Item!
+
+    // Send email notifications to both parties
+    try {
+      const [companyResult, engineerResult, jobResult] = await Promise.all([
+        docClient.send(
+          new GetCommand({
+            TableName: USERS_TABLE,
+            Key: { userId: updatedContract.companyId },
+          })
+        ),
+        docClient.send(
+          new GetCommand({
+            TableName: USERS_TABLE,
+            Key: { userId: updatedContract.engineerId },
+          })
+        ),
+        docClient.send(
+          new GetCommand({
+            TableName: JOBS_TABLE,
+            Key: { jobId: updatedContract.jobId },
+          })
+        ),
+      ])
+
+      const company = companyResult.Item
+      const engineer = engineerResult.Item
+      const job = jobResult.Item
+
+      const companyName = company?.displayName || company?.companyName || company?.email?.split('@')[0] || '企業'
+      const engineerName = engineer?.displayName || engineer?.name || engineer?.email?.split('@')[0] || 'エンジニア'
+      const jobTitle = job?.title || '案件'
+
+      // Send to company
+      if (company?.email) {
+        const template = paymentCompletedEmailForCompany(companyName, engineerName, jobTitle, updatedContract.contractAmount, contractId)
+        await sendEmail({
+          to: company.email,
+          subject: template.subject,
+          body: template.body,
+        })
+        console.log(`Payment completed email sent to company ${company.email}`)
+      }
+
+      // Send to engineer
+      if (engineer?.email) {
+        const template = paymentCompletedEmailForEngineer(engineerName, companyName, jobTitle, updatedContract.contractAmount, contractId)
+        await sendEmail({
+          to: engineer.email,
+          subject: template.subject,
+          body: template.body,
+        })
+        console.log(`Payment completed email sent to engineer ${engineer.email}`)
+      }
+    } catch (emailError) {
+      console.error('Error sending payment completed emails:', emailError)
+      // Don't block the response
+    }
 
     return successResponse({
       ...updatedContractResult.Item,

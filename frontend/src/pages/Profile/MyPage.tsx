@@ -24,12 +24,20 @@ function MyPage() {
         <div className="glass-dark rounded-2xl shadow-2xl p-8 border border-[#00E5FF]/20 animate-slide-down">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-white font-mono">マイページ</h1>
-            <Link
-              to="/profile/edit"
-              className="btn-primary px-6 py-3 rounded-lg font-semibold"
-            >
-              編集
-            </Link>
+            <div className="flex gap-3">
+              <Link
+                to="/profile/mfa"
+                className="btn-secondary px-6 py-3 rounded-lg font-semibold"
+              >
+                セキュリティ設定
+              </Link>
+              <Link
+                to="/profile/edit"
+                className="btn-primary px-6 py-3 rounded-lg font-semibold"
+              >
+                編集
+              </Link>
+            </div>
           </div>
 
           {isEngineer ? (

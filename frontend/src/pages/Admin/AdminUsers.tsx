@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
 import api from '../../services/api'
 import AdminHeader from '../../components/layout/AdminHeader'
+import UserDetailModal from '../../components/admin/UserDetailModal'
 
 interface AdminUser {
   userId: string
@@ -30,6 +31,7 @@ function AdminUsers() {
   const [accountStatusFilter, setAccountStatusFilter] = useState<AccountStatusFilter>('all')
   const [mfaFilter, setMFAFilter] = useState<MFAFilter>('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 
   useEffect(() => {
     // Check if user is logged in
@@ -369,6 +371,7 @@ function AdminUsers() {
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <button
+                          onClick={() => setSelectedUserId(u.userId)}
                           className="px-2 py-1 rounded-lg bg-[#00E5FF]/20 text-[#00E5FF] hover:bg-[#00E5FF]/30 transition-colors text-xs font-semibold whitespace-nowrap"
                         >
                           詳細
@@ -387,6 +390,11 @@ function AdminUsers() {
           表示件数: {filteredUsers.length} / 全{users.length}件
         </div>
       </div>
+
+      {/* User Detail Modal */}
+      {selectedUserId && (
+        <UserDetailModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />
+      )}
     </div>
   )
 }

@@ -4,6 +4,8 @@ import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, QueryCom
 import { successResponse, errorResponse } from '../../utils/response.js'
 import { v4 as uuidv4 } from 'uuid'
 import { createNotification } from '../../utils/notifications.js'
+import { sendEmail } from '../../utils/email.js'
+import { newMessageEmail } from '../../utils/emailTemplates.js'
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
@@ -12,6 +14,7 @@ const MESSAGES_TABLE = process.env.MESSAGES_TABLE!
 const CONVERSATIONS_TABLE = process.env.CONVERSATIONS_TABLE!
 const USERS_TABLE = process.env.USERS_TABLE!
 const CONTRACTS_TABLE = process.env.CONTRACTS_TABLE!
+const JOBS_TABLE = process.env.JOBS_TABLE!
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
@@ -140,6 +143,46 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       link: `/messages/${conversationId}`,
       relatedId: messageId,
     })
+
+    // Send email notification to recipient
+    try {
+      const [recipientResult, jobResult] = await Promise.all([
+        docClient.send(
+          new GetCommand({
+            TableName: USERS_TABLE,
+            Key: { userId: recipientId },
+          })
+        ),
+        conversation.jobId
+          ? docClient.send(
+              new GetCommand({
+                TableName: JOBS_TABLE,
+                Key: { jobId: conversation.jobId },
+              })
+            )
+          : Promise.resolve({ Item: null }),
+      ])
+
+      const recipient = recipientResult.Item
+      const job = jobResult.Item
+
+      if (recipient?.email) {
+        const recipientName = recipient.displayName || recipient.companyName || recipient.email.split('@')[0]
+        const senderName = userResult.Item.displayName || userResult.Item.companyName || userResult.Item.email?.split('@')[0] || '送信者'
+        const jobTitle = job?.title || '案件'
+
+        const template = newMessageEmail(recipientName, senderName, jobTitle, conversationId)
+        await sendEmail({
+          to: recipient.email,
+          subject: template.subject,
+          body: template.body,
+        })
+        console.log(`Message notification email sent to ${recipient.email}`)
+      }
+    } catch (emailError) {
+      console.error('Error sending message notification email:', emailError)
+      // Don't block the response
+    }
 
     return successResponse(message)
   } catch (error) {
