@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Contract } from '../../types/contract'
-import { getContractDetail, approveContract, processPayment } from '../../services/contracts'
+import { getContractDetail, approveContract } from '../../services/contracts'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
@@ -18,7 +18,6 @@ function ContractDetail() {
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
     if (contractId) {
@@ -61,23 +60,17 @@ function ContractDetail() {
     setShowPaymentModal(true)
   }
 
-  const handlePaymentSuccess = async (token: string) => {
-    setProcessing(true)
+  const handlePaymentSuccess = async () => {
+    // Payment is now processed within the PaymentModal
+    // Just refresh the contract data
     try {
-      const updatedContract = await processPayment(contractId!, token)
+      const updatedContract = await getContractDetail(contractId!)
       setContract(updatedContract)
       setShowPaymentModal(false)
-      showSuccess('決済が完了しました')
+      showSuccess('決済情報が送信されました。担当者より連絡いたします。')
     } catch (err: any) {
-      showError(err.message || '決済に失敗しました')
-    } finally {
-      setProcessing(false)
+      showError(err.message || '契約情報の更新に失敗しました')
     }
-  }
-
-  const handlePaymentError = (error: string) => {
-    showError(error)
-    setProcessing(false)
   }
 
 
@@ -293,10 +286,9 @@ function ContractDetail() {
                   </div>
                   <button
                     onClick={handlePayment}
-                    disabled={processing}
-                    className="w-full bg-gradient-to-r from-[#FF6B35] to-[#FF8C5A] text-white py-3 px-4 rounded-lg hover:shadow-lg hover:shadow-[#FF6B35]/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                    className="w-full bg-gradient-to-r from-[#FF6B35] to-[#FF8C5A] text-white py-3 px-4 rounded-lg hover:shadow-lg hover:shadow-[#FF6B35]/30 transition-all duration-300 font-semibold"
                   >
-                    {processing ? '処理中...' : `プラットフォーム手数料を支払う (¥${contract.feeAmount.toLocaleString()})`}
+                    プラットフォーム手数料を支払う (¥{contract.feeAmount.toLocaleString()})
                   </button>
                 </div>
               )}
@@ -353,11 +345,13 @@ function ContractDetail() {
       {contract && (
         <PaymentModal
           isOpen={showPaymentModal}
-          amount={contract.feeAmount}
-          contractId={contractId!}
-          onClose={() => !processing && setShowPaymentModal(false)}
+          onClose={() => setShowPaymentModal(false)}
           onSuccess={handlePaymentSuccess}
-          onError={handlePaymentError}
+          contractAmount={contract.contractAmount}
+          feeAmount={contract.feeAmount}
+          feePercentage={contract.feePercentage}
+          contractId={contractId!}
+          jobTitle={(contract as any).jobTitle || '案件'}
         />
       )}
     </div>

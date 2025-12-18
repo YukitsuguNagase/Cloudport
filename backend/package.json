@@ -16,7 +16,6 @@
     "@aws-sdk/client-secrets-manager": "^3.470.0",
     "@aws-sdk/client-ses": "^3.470.0",
     "@aws-sdk/lib-dynamodb": "^3.470.0",
-    "payjp": "^2.3.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

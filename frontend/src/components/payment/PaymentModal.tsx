@@ -1,321 +1,267 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useToast } from '../../contexts/ToastContext'
 
 interface PaymentModalProps {
   isOpen: boolean
-  amount: number
-  contractId: string
   onClose: () => void
-  onSuccess: (token: string) => void
-  onError: (error: string) => void
+  onSuccess: () => void
+  contractAmount: number
+  feeAmount: number
+  feePercentage: number
+  contractId: string
+  jobTitle: string
 }
 
-declare global {
-  interface Window {
-    Payjp: any
-    __payjpInstance?: any
-    __payjpElements?: any
-  }
-}
+function PaymentModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  contractAmount,
+  feeAmount,
+  feePercentage,
+  contractId,
+  jobTitle,
+}: PaymentModalProps) {
+  const { showToast } = useToast()
+  const [paymentMethod, setPaymentMethod] = useState('bank_transfer')
+  const [paymentNote, setPaymentNote] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
 
-// Global PAY.JP elements (shared across all instances)
-let globalCardNumberElement: any = null
-let globalCardExpiryElement: any = null
-let globalCardCvcElement: any = null
-
-function PaymentModal({ isOpen, amount, contractId: _contractId, onClose, onSuccess, onError }: PaymentModalProps) {
-  const [loading, setLoading] = useState(false)
-  const [elementsReady, setElementsReady] = useState(false)
-  const cardNumberRef = useRef<HTMLDivElement>(null)
-  const cardExpiryRef = useRef<HTMLDivElement>(null)
-  const cardCvcRef = useRef<HTMLDivElement>(null)
-  const isMountedRef = useRef(false)
-
-  // Initialize PAY.JP and mount elements when modal opens
-  useEffect(() => {
-    if (!isOpen) return
-
-    const payjpPublicKey = import.meta.env.VITE_PAYJP_PUBLIC_KEY
-    if (!payjpPublicKey) {
-      console.error('PAY.JP public key not found')
-      onError('決済システムの設定エラー')
-      return
-    }
-
-    if (!window.Payjp) {
-      console.error('window.Payjp is not available')
-      onError('決済システムの読み込みエラー')
-      return
-    }
-
-    // Use requestAnimationFrame to ensure DOM is fully ready
-    const initializePayjp = () => {
-      requestAnimationFrame(() => {
-        if (!cardNumberRef.current || !cardExpiryRef.current || !cardCvcRef.current) {
-          console.error('DOM elements not ready:', {
-            cardNumber: !!cardNumberRef.current,
-            cardExpiry: !!cardExpiryRef.current,
-            cardCvc: !!cardCvcRef.current
-          })
-          // Retry after a short delay
-          setTimeout(initializePayjp, 100)
-          return
-        }
-
-        try {
-          console.log('Initializing PAY.JP...')
-
-          // Initialize PAY.JP only once (global singleton)
-          if (!window.__payjpInstance) {
-            console.log('Creating new PAY.JP instance...')
-            window.__payjpInstance = window.Payjp(payjpPublicKey, {
-              threeDSecureWorkflow: 'iframe'
-            })
-            window.__payjpElements = window.__payjpInstance.elements()
-
-            // Style for elements
-            const style = {
-              base: {
-                color: '#E8EEF7',
-                fontSize: '16px',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                lineHeight: '1.5',
-                '::placeholder': {
-                  color: '#94A3B8'
-                }
-              },
-              invalid: {
-                color: '#FF6B35'
-              },
-              complete: {
-                color: '#00E5FF'
-              }
-            }
-
-            // Create elements only once
-            console.log('Creating elements...')
-            globalCardNumberElement = window.__payjpElements.create('cardNumber', { style })
-            globalCardExpiryElement = window.__payjpElements.create('cardExpiry', { style })
-            globalCardCvcElement = window.__payjpElements.create('cardCvc', { style })
-          }
-
-          // Mount elements to current DOM
-          if (!isMountedRef.current) {
-            console.log('Mounting elements...')
-            const cardNumberId = 'payjp-card-number'
-            const cardExpiryId = 'payjp-card-expiry'
-            const cardCvcId = 'payjp-card-cvc'
-
-            cardNumberRef.current.id = cardNumberId
-            cardExpiryRef.current.id = cardExpiryId
-            cardCvcRef.current.id = cardCvcId
-
-            globalCardNumberElement.mount('#' + cardNumberId)
-            globalCardExpiryElement.mount('#' + cardExpiryId)
-            globalCardCvcElement.mount('#' + cardCvcId)
-
-            isMountedRef.current = true
-            console.log('PAY.JP elements mounted successfully')
-          }
-
-          setElementsReady(true)
-
-        } catch (error) {
-          console.error('PAY.JP initialization error:', error)
-          onError('決済システムの初期化に失敗しました: ' + (error as Error).message)
-        }
-      })
-    }
-
-    initializePayjp()
-
-    // Cleanup on close - unmount but keep elements for reuse
-    return () => {
-      if (isMountedRef.current && globalCardNumberElement) {
-        try {
-          console.log('Unmounting elements...')
-          globalCardNumberElement.unmount()
-          globalCardExpiryElement.unmount()
-          globalCardCvcElement.unmount()
-          isMountedRef.current = false
-        } catch (error) {
-          console.error('Error unmounting elements:', error)
-        }
-      }
-    }
-  }, [isOpen])
+  if (!isOpen) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!window.__payjpInstance || !globalCardNumberElement) {
-      onError('カード情報の入力に失敗しました')
+    if (!paymentMethod) {
+      showToast('支払い方法を選択してください', 'error')
       return
     }
 
-    setLoading(true)
+    setIsProcessing(true)
 
     try {
-      const result = await window.__payjpInstance.createToken(globalCardNumberElement, {
-        three_d_secure: true,
-        card: {
-          name: 'Test User',
-          email: 'test@example.com'
+      const response = await fetch(
+        `${import.meta.env.VITE_API_ENDPOINT}/contracts/${contractId}/payment`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('idToken')}`,
+          },
+          body: JSON.stringify({
+            paymentInfo: {
+              method: paymentMethod,
+              note: paymentNote,
+            },
+          }),
         }
-      })
+      )
 
-      if (result.error) {
-        onError(result.error.message || 'カード情報の検証に失敗しました')
-        setLoading(false)
-        return
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '支払い処理に失敗しました')
       }
 
-      if (result.id) {
-        onSuccess(result.id)
-      }
-    } catch (err: any) {
-      console.error('Token creation error:', err)
-      onError(err.message || 'カード情報の処理中にエラーが発生しました')
-      setLoading(false)
+      showToast('支払い情報を記録しました', 'success')
+      onSuccess()
+      onClose()
+    } catch (error: any) {
+      console.error('Payment error:', error)
+      showToast(error.message || '支払い処理に失敗しました', 'error')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      ></div>
-
-      {/* Modal */}
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative glass-dark rounded-2xl border border-[#00E5FF]/20 shadow-2xl max-w-md w-full p-8 animate-scale-in">
-          {/* Close button */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-[#E8EEF7]/60 hover:text-[#E8EEF7] transition-colors"
-            disabled={loading}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-
-          {/* Header */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-white mb-2">カード情報入力</h2>
-            <p className="text-[#E8EEF7]/60 text-sm">プラットフォーム手数料のお支払い</p>
-          </div>
-
-          {/* Amount */}
-          <div className="bg-[#0A1628]/50 border border-[#00E5FF]/10 p-4 rounded-lg mb-6">
-            <div className="text-[#E8EEF7]/60 text-sm mb-1">お支払い金額</div>
-            <div className="text-3xl font-bold text-[#00E5FF]">
-              ¥{amount.toLocaleString()}
-            </div>
-          </div>
-
-          {/* Payment Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Card Number */}
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="glass-dark rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-[#00E5FF]/20">
+        {/* Header */}
+        <div className="p-6 border-b border-[#00E5FF]/20">
+          <div className="flex justify-between items-start">
             <div>
-              <label className="block text-[#E8EEF7] text-sm font-medium mb-2">
-                カード番号
-              </label>
-              <div
-                ref={cardNumberRef}
-                className="bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg px-4 py-3 focus-within:border-[#00E5FF] transition-colors min-h-[44px]"
-              ></div>
+              <h2 className="text-2xl font-bold gradient-text mb-2">手数料支払い</h2>
+              <p className="text-[#E8EEF7]/60 text-sm">{jobTitle}</p>
             </div>
-
-            {/* Expiry and CVC */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[#E8EEF7] text-sm font-medium mb-2">
-                  有効期限
-                </label>
-                <div
-                  ref={cardExpiryRef}
-                  className="bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg px-4 py-3 focus-within:border-[#00E5FF] transition-colors min-h-[44px]"
-                ></div>
-              </div>
-
-              <div>
-                <label className="block text-[#E8EEF7] text-sm font-medium mb-2">
-                  CVC
-                </label>
-                <div
-                  ref={cardCvcRef}
-                  className="bg-[#0A1628]/50 border border-[#00E5FF]/20 rounded-lg px-4 py-3 focus-within:border-[#00E5FF] transition-colors min-h-[44px]"
-                ></div>
-              </div>
-            </div>
-
-            {/* Test Card Info */}
-            <div className="bg-[#5B8DEF]/10 border border-[#5B8DEF]/30 p-3 rounded-lg">
-              <p className="text-[#5B8DEF] text-xs font-semibold mb-1">テストカード情報</p>
-              <p className="text-[#E8EEF7]/80 text-xs">
-                カード番号: 4242 4242 4242 4242<br />
-                有効期限: 任意の未来の日付<br />
-                CVC: 任意の3桁
-              </p>
-            </div>
-
-            {/* 3D Secure Notice */}
-            <div className="bg-[#00E5FF]/10 border border-[#00E5FF]/30 p-3 rounded-lg">
-              <p className="text-[#00E5FF] text-xs font-semibold mb-1">
-                <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                3Dセキュア対応
-              </p>
-              <p className="text-[#E8EEF7]/80 text-xs">
-                カード会社による本人認証が行われる場合があります
-              </p>
-            </div>
-
-            {/* Submit Button */}
             <button
-              type="submit"
-              disabled={loading || !elementsReady}
-              className="w-full bg-gradient-to-r from-[#FF6B35] to-[#FF8C5A] text-white py-3 px-4 rounded-lg hover:shadow-lg hover:shadow-[#FF6B35]/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+              onClick={onClose}
+              className="text-[#E8EEF7]/60 hover:text-white transition-colors"
+              disabled={isProcessing}
             >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  処理中...
-                </span>
-              ) : !elementsReady ? (
-                '読み込み中...'
-              ) : (
-                `¥${amount.toLocaleString()} を支払う`
-              )}
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
+          </div>
+        </div>
 
-            {/* Cancel Button */}
+        {/* Content */}
+        <form onSubmit={handleSubmit} className="p-6">
+          {/* Payment Summary */}
+          <div className="glass-dark p-6 rounded-xl mb-6 border border-[#00E5FF]/10">
+            <h3 className="text-lg font-semibold mb-4 text-white">支払い金額</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[#E8EEF7]/60">契約金額</span>
+                <span className="text-white font-semibold">
+                  ¥{contractAmount.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[#E8EEF7]/60">
+                  プラットフォーム手数料 ({feePercentage}%)
+                </span>
+                <span className="text-[#00E5FF] font-bold text-xl">
+                  ¥{feeAmount.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Method */}
+          <div className="mb-6">
+            <label className="block text-white font-semibold mb-3">支払い方法</label>
+            <div className="space-y-3">
+              <label className="flex items-center p-4 glass-dark rounded-lg border border-[#00E5FF]/20 cursor-pointer hover:border-[#00E5FF]/40 transition-colors">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="bank_transfer"
+                  checked={paymentMethod === 'bank_transfer'}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="mr-3"
+                />
+                <div>
+                  <div className="text-white font-medium">銀行振込</div>
+                  <div className="text-[#E8EEF7]/60 text-sm">
+                    指定口座への振込
+                  </div>
+                </div>
+              </label>
+
+              <label className="flex items-center p-4 glass-dark rounded-lg border border-[#00E5FF]/20 cursor-pointer hover:border-[#00E5FF]/40 transition-colors">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="credit_card"
+                  checked={paymentMethod === 'credit_card'}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="mr-3"
+                />
+                <div>
+                  <div className="text-white font-medium">クレジットカード</div>
+                  <div className="text-[#E8EEF7]/60 text-sm">
+                    別途ご案内する方法での決済
+                  </div>
+                </div>
+              </label>
+
+              <label className="flex items-center p-4 glass-dark rounded-lg border border-[#00E5FF]/20 cursor-pointer hover:border-[#00E5FF]/40 transition-colors">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="other"
+                  checked={paymentMethod === 'other'}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="mr-3"
+                />
+                <div>
+                  <div className="text-white font-medium">その他</div>
+                  <div className="text-[#E8EEF7]/60 text-sm">
+                    請求書払い等
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Payment Note */}
+          <div className="mb-6">
+            <label className="block text-white font-semibold mb-3">備考（任意）</label>
+            <textarea
+              value={paymentNote}
+              onChange={(e) => setPaymentNote(e.target.value)}
+              placeholder="支払いに関するメモがあれば記入してください"
+              className="w-full px-4 py-3 bg-[#0A1628] border border-[#00E5FF]/20 rounded-lg text-white placeholder-[#E8EEF7]/40 focus:outline-none focus:border-[#00E5FF] resize-none"
+              rows={3}
+            />
+          </div>
+
+          {/* Important Notice */}
+          <div className="bg-[#FF6B35]/10 border border-[#FF6B35]/30 rounded-lg p-4 mb-6">
+            <div className="flex items-start">
+              <svg
+                className="w-5 h-5 text-[#FF6B35] mr-3 flex-shrink-0 mt-0.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <div className="text-sm text-[#E8EEF7]/80">
+                <p className="font-semibold text-[#FF6B35] mb-1">重要なお知らせ</p>
+                <p>
+                  支払い方法を選択後、別途運営から支払いに関する詳細をご連絡いたします。
+                  技術者への契約金額（¥{contractAmount.toLocaleString()}）は直接お支払いください。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-4">
             <button
               type="button"
               onClick={onClose}
-              disabled={loading}
-              className="w-full bg-transparent border border-[#E8EEF7]/20 text-[#E8EEF7] py-3 px-4 rounded-lg hover:bg-[#E8EEF7]/5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isProcessing}
+              className="flex-1 px-6 py-3 rounded-lg border border-[#E8EEF7]/20 text-white hover:bg-[#E8EEF7]/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               キャンセル
             </button>
-          </form>
-
-          {/* Security Notice */}
-          <div className="mt-4 flex items-center justify-center text-[#E8EEF7]/40 text-xs">
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-            PAY.JPの安全な決済システムを使用しています
+            <button
+              type="submit"
+              disabled={isProcessing}
+              className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isProcessing ? (
+                <span className="flex items-center justify-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  処理中...
+                </span>
+              ) : (
+                '支払い情報を記録'
+              )}
+            </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   )

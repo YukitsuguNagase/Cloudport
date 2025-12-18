@@ -29,6 +29,7 @@ import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 import Legal from './pages/Legal'
 import Contact from './pages/Contact'
+import CommercialTransactions from './pages/CommercialTransactions'
 import AdminLogin from './pages/Admin/AdminLogin'
 import AdminDashboard from './pages/Admin/AdminDashboard'
 import AdminUsers from './pages/Admin/AdminUsers'
@@ -52,6 +53,7 @@ function App() {
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/legal" element={<Legal />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/commercial-transactions" element={<CommercialTransactions />} />
 
           {/* Protected routes - with layout */}
           <Route path="/jobs" element={<Layout><JobList /></Layout>} />

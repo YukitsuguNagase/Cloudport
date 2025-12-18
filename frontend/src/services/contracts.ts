@@ -23,9 +23,9 @@ export const approveContract = async (contractId: string): Promise<Contract> => 
   return response.data
 }
 
-export const processPayment = async (contractId: string, payjpToken: string): Promise<Contract> => {
+export const processPayment = async (contractId: string, paymentInfo: { method: string; note?: string }): Promise<Contract> => {
   const response = await apiClient.post(`/contracts/${contractId}/payment`, {
-    payjpToken
+    paymentInfo
   })
   return response.data
 }

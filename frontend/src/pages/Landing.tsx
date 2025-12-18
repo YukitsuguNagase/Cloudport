@@ -1,17 +1,63 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { getPublicStats } from '../services/stats'
 
 function Landing() {
   const heroRef = useRef<HTMLDivElement>(null)
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [engineersCount, setEngineersCount] = useState(0)
+  const [jobsCount, setJobsCount] = useState(0)
+  const [matchRate, setMatchRate] = useState(0)
 
   useEffect(() => {
     if (user) {
       navigate('/jobs', { replace: true })
     }
   }, [user, navigate])
+
+  // Fetch real stats and animate counters
+  useEffect(() => {
+    const fetchAndAnimateStats = async () => {
+      try {
+        const stats = await getPublicStats()
+
+        const animateCounter = (target: number, setter: (value: number) => void) => {
+          let current = 0
+          const increment = target / 60 // 60 frames for smooth animation
+          const timer = setInterval(() => {
+            current += increment
+            if (current >= target) {
+              setter(target)
+              clearInterval(timer)
+            } else {
+              setter(Math.floor(current))
+            }
+          }, 30)
+          return timer
+        }
+
+        const timer1 = animateCounter(stats.engineersCount, setEngineersCount)
+        const timer2 = animateCounter(stats.jobsCount, setJobsCount)
+        const timer3 = animateCounter(stats.matchRate, setMatchRate)
+
+        return () => {
+          clearInterval(timer1)
+          clearInterval(timer2)
+          clearInterval(timer3)
+        }
+      } catch (error) {
+        console.error('Failed to fetch stats:', error)
+        // Fallback to default values if API fails
+        setEngineersCount(0)
+        setJobsCount(0)
+        setMatchRate(0)
+      }
+    }
+
+    fetchAndAnimateStats()
+  }, [])
 
   useEffect(() => {
     // Create floating cloud elements
@@ -126,20 +172,20 @@ function Landing() {
           </div>
 
           {/* Stats */}
-          {/* <div className="mt-16 sm:mt-24 grid grid-cols-3 gap-4 sm:gap-8 max-w-3xl mx-auto animate-slide-up delay-400">
+          <div className="mt-16 sm:mt-24 grid grid-cols-3 gap-4 sm:gap-8 max-w-3xl mx-auto animate-slide-up delay-400">
             <div className="text-center">
-              <div className="text-3xl sm:text-5xl font-bold font-mono gradient-text-cyan mb-2">500+</div>
+              <div className="text-3xl sm:text-5xl font-bold font-mono gradient-text-cyan mb-2">{engineersCount}+</div>
               <div className="text-xs sm:text-sm text-[#E8EEF7]/60 font-medium">登録技術者</div>
             </div>
             <div className="text-center border-x border-[#00E5FF]/20">
-              <div className="text-3xl sm:text-5xl font-bold font-mono gradient-text mb-2">200+</div>
+              <div className="text-3xl sm:text-5xl font-bold font-mono gradient-text mb-2">{jobsCount}+</div>
               <div className="text-xs sm:text-sm text-[#E8EEF7]/60 font-medium">掲載案件</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl sm:text-5xl font-bold font-mono gradient-text-cyan mb-2">98%</div>
+              <div className="text-3xl sm:text-5xl font-bold font-mono gradient-text-cyan mb-2">{matchRate}%</div>
               <div className="text-xs sm:text-sm text-[#E8EEF7]/60 font-medium">マッチング成功率</div>
             </div>
-          </div> */}
+          </div>
         </div>
       </section>
 

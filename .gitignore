@@ -50,3 +50,9 @@ yarn-error.log*
 
 # Local DynamoDB
 .dynamodb/
+
+# Markdown files (exclude all except README.md)
+*.md
+*.MD
+!README.md
+!README.MD

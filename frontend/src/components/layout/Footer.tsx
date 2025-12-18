@@ -28,6 +28,11 @@ function Footer() {
                 </Link>
               </li>
               <li>
+                <Link to="/commercial-transactions" className="text-[#E8EEF7]/60 hover:text-[#00E5FF] transition-colors duration-300">
+                  特定商取引法に基づく表記
+                </Link>
+              </li>
+              <li>
                 <Link to="/contact" className="text-[#E8EEF7]/60 hover:text-[#00E5FF] transition-colors duration-300">
                   お問い合わせ
                 </Link>

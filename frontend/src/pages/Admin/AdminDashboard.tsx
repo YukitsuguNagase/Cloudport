@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
 import api from '../../services/api'
-import RefundModal from '../../components/admin/RefundModal'
 import AdminHeader from '../../components/layout/AdminHeader'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
@@ -37,8 +36,6 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'paid' | 'pending'>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [refundModalOpen, setRefundModalOpen] = useState(false)
-  const [selectedContract, setSelectedContract] = useState<AdminContract | null>(null)
   const [dateRange, setDateRange] = useState<DateRange>('30days')
 
   useEffect(() => {
@@ -71,34 +68,6 @@ function AdminDashboard() {
     }
   }
 
-  const openRefundModal = (contract: AdminContract) => {
-    setSelectedContract(contract)
-    setRefundModalOpen(true)
-  }
-
-  const closeRefundModal = () => {
-    setRefundModalOpen(false)
-    setSelectedContract(null)
-  }
-
-  const handleRefund = async (reason: string) => {
-    if (!selectedContract || !selectedContract.paymentId) {
-      return
-    }
-
-    try {
-      await api.post(`/admin/contracts/${selectedContract.contractId}/refund`, {
-        paymentId: selectedContract.paymentId,
-        reason,
-      })
-      showToast('返金処理が完了しました', 'success')
-      fetchContracts()
-    } catch (error: any) {
-      console.error('Error processing refund:', error)
-      showToast(error.response?.data?.message || '返金処理に失敗しました', 'error')
-      throw error // Re-throw to let modal handle the error state
-    }
-  }
 
   const exportToCSV = () => {
     // Create CSV content
@@ -240,6 +209,29 @@ function AdminDashboard() {
     return ((refundedCount / (paidCount + refundedCount)) * 100).toFixed(1)
   }, [dateFilteredContracts])
 
+  // Calculate success rate (contracts that reached 'paid' status)
+  const successRate = useMemo(() => {
+    const totalContracts = dateFilteredContracts.length
+    const successfulContracts = dateFilteredContracts.filter(
+      (c) => c.status === 'paid' || c.status === 'completed'
+    ).length
+    if (totalContracts === 0) return 0
+    return ((successfulContracts / totalContracts) * 100).toFixed(1)
+  }, [dateFilteredContracts])
+
+  // Calculate pending contracts
+  const pendingCount = useMemo(() => {
+    return dateFilteredContracts.filter((c) => c.status === 'pending' || c.status === 'approved').length
+  }, [dateFilteredContracts])
+
+  // Calculate average contract value
+  const avgContractValue = useMemo(() => {
+    const paidContracts = dateFilteredContracts.filter((c) => c.status === 'paid')
+    if (paidContracts.length === 0) return 0
+    const total = paidContracts.reduce((sum, c) => sum + c.contractAmount, 0)
+    return Math.round(total / paidContracts.length)
+  }, [dateFilteredContracts])
+
   if (loading) {
     return (
       <>
@@ -258,7 +250,7 @@ function AdminDashboard() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold gradient-text mb-2">管理者ダッシュボード</h1>
-        <p className="text-[#E8EEF7]/60">取引履歴と返金管理</p>
+        <p className="text-[#E8EEF7]/60">取引履歴管理</p>
       </div>
 
       {/* MFA Warning Banner */}
@@ -278,22 +270,52 @@ function AdminDashboard() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="glass-dark p-6 rounded-xl border border-[#00E5FF]/20">
           <p className="text-[#E8EEF7]/60 text-sm mb-2">総取引件数</p>
           <p className="text-3xl font-bold gradient-text-cyan">{contracts.length}</p>
+          <p className="text-xs text-[#E8EEF7]/40 mt-2">全期間</p>
         </div>
         <div className="glass-dark p-6 rounded-xl border border-[#00E5FF]/20">
           <p className="text-[#E8EEF7]/60 text-sm mb-2">手数料収益</p>
           <p className="text-3xl font-bold gradient-text-cyan">¥{totalFeeRevenue.toLocaleString()}</p>
+          <p className="text-xs text-[#E8EEF7]/40 mt-2">決済済み合計</p>
         </div>
         <div className="glass-dark p-6 rounded-xl border border-[#00E5FF]/20">
           <p className="text-[#E8EEF7]/60 text-sm mb-2">総契約金額</p>
           <p className="text-3xl font-bold gradient-text-cyan">¥{totalContractValue.toLocaleString()}</p>
+          <p className="text-xs text-[#E8EEF7]/40 mt-2">決済済み合計</p>
+        </div>
+        <div className="glass-dark p-6 rounded-xl border border-[#10B981]/20">
+          <p className="text-[#E8EEF7]/60 text-sm mb-2">成約率</p>
+          <p className="text-3xl font-bold text-[#10B981]">{successRate}%</p>
+          <p className="text-xs text-[#E8EEF7]/40 mt-2">決済完了率</p>
+        </div>
+      </div>
+
+      {/* Additional Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="glass-dark p-6 rounded-xl border border-[#F59E0B]/20">
+          <p className="text-[#E8EEF7]/60 text-sm mb-2">待機中</p>
+          <p className="text-3xl font-bold text-[#F59E0B]">{pendingCount}</p>
+          <p className="text-xs text-[#E8EEF7]/40 mt-2">未決済契約</p>
+        </div>
+        <div className="glass-dark p-6 rounded-xl border border-[#00E5FF]/20">
+          <p className="text-[#E8EEF7]/60 text-sm mb-2">平均契約単価</p>
+          <p className="text-3xl font-bold gradient-text-cyan">¥{avgContractValue.toLocaleString()}</p>
+          <p className="text-xs text-[#E8EEF7]/40 mt-2">決済済み平均</p>
         </div>
         <div className="glass-dark p-6 rounded-xl border border-[#EF4444]/20">
           <p className="text-[#E8EEF7]/60 text-sm mb-2">返金率</p>
           <p className="text-3xl font-bold text-[#EF4444]">{refundRate}%</p>
+          <p className="text-xs text-[#E8EEF7]/40 mt-2">返金/全決済</p>
+        </div>
+        <div className="glass-dark p-6 rounded-xl border border-[#8B5CF6]/20">
+          <p className="text-[#E8EEF7]/60 text-sm mb-2">決済済み</p>
+          <p className="text-3xl font-bold text-[#8B5CF6]">
+            {dateFilteredContracts.filter((c) => c.status === 'paid').length}
+          </p>
+          <p className="text-xs text-[#E8EEF7]/40 mt-2">選択期間内</p>
         </div>
       </div>
 
@@ -502,15 +524,12 @@ function AdminDashboard() {
                 <th className="px-4 py-4 text-left text-xs font-semibold text-[#E8EEF7]/60 uppercase tracking-wider whitespace-nowrap w-[140px]">
                   決済日時
                 </th>
-                <th className="px-4 py-4 text-left text-xs font-semibold text-[#E8EEF7]/60 uppercase tracking-wider whitespace-nowrap w-[80px]">
-                  操作
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#00E5FF]/10">
               {filteredContracts.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-[#E8EEF7]/60">
+                  <td colSpan={9} className="px-6 py-12 text-center text-[#E8EEF7]/60">
                     該当する取引がありません
                   </td>
                 </tr>
@@ -564,18 +583,6 @@ function AdminDashboard() {
                           })
                         : '-'}
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      {contract.status === 'paid' && contract.paymentId ? (
-                        <button
-                          onClick={() => openRefundModal(contract)}
-                          className="px-2 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors text-xs font-semibold whitespace-nowrap"
-                        >
-                          返金
-                        </button>
-                      ) : (
-                        <span className="text-[#E8EEF7]/40">-</span>
-                      )}
-                    </td>
                   </tr>
                 ))
               )}
@@ -588,18 +595,6 @@ function AdminDashboard() {
       <div className="mt-6 text-sm text-[#E8EEF7]/60 text-right">
         表示件数: {filteredContracts.length} / 全{contracts.length}件
       </div>
-
-      {/* Refund Modal */}
-      {selectedContract && (
-        <RefundModal
-          isOpen={refundModalOpen}
-          onClose={closeRefundModal}
-          onConfirm={handleRefund}
-          contractId={selectedContract.contractId}
-          contractAmount={selectedContract.contractAmount}
-          feeAmount={selectedContract.feeAmount}
-        />
-      )}
       </div>
     </div>
   )

@@ -24,6 +24,10 @@ Globals:
         PAYMENT_ATTEMPTS_TABLE: !Ref PaymentAttemptsTable
         BLOCKED_IPS_TABLE: !Ref BlockedIPsTable
         SENDER_EMAIL: noreply@dotqinc.com
+    Tags:
+      Project: CloudPort
+      Environment: !Ref Environment
+      ManagedBy: SAM
 
 Parameters:
   Environment:
@@ -33,12 +37,6 @@ Parameters:
       - dev
       - prod
     Description: Environment name
-
-  PayjpSecretKeyParam:
-    Type: String
-    NoEcho: true
-    Default: sk_test_c07bd8dfb391cb8bdc497b46
-    Description: PAY.JP Secret Key (test or production)
 
   AdminAllowedIPs:
     Type: CommaDelimitedList
@@ -50,6 +48,13 @@ Resources:
   CognitoSNSRole:
     Type: AWS::IAM::Role
     Properties:
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -75,6 +80,10 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref Environment
+      Tags:
+        Project: CloudPort
+        Environment: !Ref Environment
+        ManagedBy: SAM
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
@@ -125,6 +134,10 @@ Resources:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: !Sub cloudport-users-${Environment}
+      UserPoolTags:
+        Project: CloudPort
+        Environment: !Ref Environment
+        ManagedBy: SAM
       AutoVerifiedAttributes:
         - email
       UsernameAttributes:
@@ -192,6 +205,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-users-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: userId
           AttributeType: S
@@ -204,6 +224,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-jobs-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: jobId
           AttributeType: S
@@ -225,6 +252,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-applications-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: applicationId
           AttributeType: S
@@ -254,6 +288,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-conversations-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: conversationId
           AttributeType: S
@@ -283,6 +324,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-messages-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: messageId
           AttributeType: S
@@ -308,6 +356,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-contracts-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: contractId
           AttributeType: S
@@ -337,6 +392,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-notifications-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: notificationId
           AttributeType: S
@@ -362,6 +424,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-scouts-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: scoutId
           AttributeType: S
@@ -397,6 +466,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-login-attempts-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: email
           AttributeType: S
@@ -412,6 +488,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-login-devices-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: userId
           AttributeType: S
@@ -428,6 +511,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-payment-attempts-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: userId
           AttributeType: S
@@ -443,6 +533,13 @@ Resources:
     Properties:
       TableName: !Sub cloudport-blocked-ips-${Environment}
       BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       AttributeDefinitions:
         - AttributeName: ipAddress
           AttributeType: S
@@ -925,9 +1022,6 @@ Resources:
     Properties:
       CodeUri: ../backend/
       Handler: dist/handlers/contracts/processPayment.handler
-      Environment:
-        Variables:
-          PAYJP_SECRET_NAME: !Sub cloudport-payjp-secret-${Environment}
       Events:
         ProcessPayment:
           Type: Api
@@ -944,11 +1038,16 @@ Resources:
             TableName: !Ref UsersTable
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PaymentAttemptsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationsTable
         - Statement:
             - Effect: Allow
               Action:
-                - secretsmanager:GetSecretValue
-              Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:cloudport-payjp-secret-${Environment}-*
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: '*'
 
   # Admin Functions
   GetAllContractsFunction:
@@ -972,32 +1071,6 @@ Resources:
             TableName: !Ref UsersTable
         - DynamoDBReadPolicy:
             TableName: !Ref JobsTable
-
-  ProcessRefundFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ../backend/
-      Handler: dist/handlers/admin/processRefund.handler
-      Environment:
-        Variables:
-          PAYJP_SECRET_NAME: !Sub cloudport-payjp-secret-${Environment}
-      Events:
-        ProcessRefund:
-          Type: Api
-          Properties:
-            RestApiId: !Ref CloudPortApi
-            Path: /admin/contracts/{contractId}/refund
-            Method: post
-            Auth:
-              Authorizer: CognitoAuthorizer
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ContractsTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - secretsmanager:GetSecretValue
-              Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:cloudport-payjp-secret-${Environment}-*
 
   GetAllUsersFunction:
     Type: AWS::Serverless::Function
@@ -1297,6 +1370,26 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref JobsTable
 
+  GetPublicStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: dist/handlers/stats/getPublicStats.handler
+      Events:
+        GetPublicStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CloudPortApi
+            Path: /stats/public
+            Method: get
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ContractsTable
+
   # Cognito Lambda Triggers
   PreAuthenticationFunction:
     Type: AWS::Serverless::Function
@@ -1364,6 +1457,13 @@ Resources:
     Properties:
       TopicName: !Sub cloudport-${Environment}-security-alarms
       DisplayName: CloudPort Security Alarms
+      Tags:
+        - Key: Project
+          Value: CloudPort
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: SAM
       Subscription:
         - Endpoint: yukinag@dotqinc.com
           Protocol: email
@@ -1404,24 +1504,6 @@ Resources:
       Dimensions:
         - Name: FunctionName
           Value: !Ref ProcessPaymentFunction
-
-  RefundErrorsAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: !Sub cloudport-${Environment}-refund-errors
-      AlarmDescription: Alert on refund processing errors
-      MetricName: Errors
-      Namespace: AWS/Lambda
-      Statistic: Sum
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: 3
-      ComparisonOperator: GreaterThanThreshold
-      AlarmActions:
-        - !Ref SecurityAlarmTopic
-      Dimensions:
-        - Name: FunctionName
-          Value: !Ref ProcessRefundFunction
 
 Outputs:
   ApiEndpoint:

@@ -71,8 +71,13 @@ function JobEdit() {
     }
   }
 
+  // ユーザー情報が読み込まれるまでローディング表示
+  if (!user) {
+    return <LoadingSpinner fullScreen />
+  }
+
   // 企業以外はアクセス不可
-  if (user?.userType !== 'company') {
+  if (user.userType !== 'company') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0A1628] via-[#1A2942] to-[#2C4875] relative overflow-hidden flex flex-col">
         <div className="absolute inset-0 tech-grid opacity-20"></div>
